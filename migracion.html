@@ -1,12 +1,42 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
+<style>html.mc-access-loading body{visibility:hidden}</style>
+<script>document.documentElement.classList.add('mc-access-loading');</script>
+<meta name="mc-api-url" content="__MC_API_URL__">
+<script>
+  (function () {
+    const githubApi = 'https://script.google.com/macros/s/AKfycbxcP33-cVM9CjSs_b-BPlD1fRz828bVTzS1yI3AM4CLUJHlXkh0D4S8Oxf30sG50f9YpQ/exec';
+    const injected = (document.querySelector('meta[name="mc-api-url"]')?.content || '').trim();
+    window.MC_HOSTED_IN_APPS_SCRIPT = /^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/(?:exec|dev)$/.test(injected);
+    window.MC_API_URL = window.MC_HOSTED_IN_APPS_SCRIPT ? injected : githubApi;
+    window.mcApiCall = function (params, method) {
+      if (window.MC_HOSTED_IN_APPS_SCRIPT && window.google && google.script && google.script.run) {
+        return new Promise(function (resolve, reject) {
+          google.script.run.withSuccessHandler(resolve).withFailureHandler(function (error) {
+            reject(new Error(error && error.message ? error.message : 'No se pudo comunicar con Apps Script.'));
+          }).apiRequest(params || {});
+        });
+      }
+      const verb = method || 'GET';
+      const options = verb === 'POST' ? { method: 'POST', body: new URLSearchParams(params || {}) } : {};
+      const url = verb === 'POST' ? window.MC_API_URL : window.MC_API_URL + '?' + new URLSearchParams(params || {});
+      return fetch(url, options).then(function (response) { return response.text(); }).then(function (text) {
+        try { return JSON.parse(text); } catch (_) { return text; }
+      });
+    };
+    document.addEventListener('DOMContentLoaded', function () {
+      const form = document.getElementById('miFormulario');
+      if (form) form.action = window.MC_API_URL;
+    });
+  })();
+</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Migraciones</title>
 <style>
   body { 
-    font-family: Arial, sans-serif; 
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Arial,sans-serif; 
     background: #F4F9FB; 
     margin:0; padding:20px; 
     display:flex; justify-content:center; align-items:flex-start; 
@@ -57,36 +87,6 @@
   .plan-details .col { padding:10px; background:#fff; border-radius:6px; box-shadow:0 2px 6px rgba(0,0,0,0.05); }
   .plan-details h3 { margin-top:0; color:#01768b; font-size:16px; }
 
-  /* Bloque autofill con animación y estilo */
-  .autofill { 
-    overflow: hidden; 
-    max-height: 0; 
-    opacity: 0; 
-    transition: max-height 0.5s ease, opacity 0.5s ease; 
-    background: #e7f7f9; 
-    border: 1px solid #01768b; 
-    border-radius: 10px; 
-    padding: 0 15px; 
-    margin-top: 15px;
-    position: relative;
-  }
-  .autofill.show { 
-    max-height: 500px; 
-    opacity: 1; 
-    padding: 15px; 
-  }
-  .autofill .input-row { margin-bottom: 10px; }
-  .autofill button { 
-    background:#c62828; 
-    color:white; 
-    padding:6px 12px; 
-    border:none; 
-    border-radius:6px; 
-    cursor:pointer; 
-    margin-top:10px;
-  }
-  .autofill button:hover { background:#a61c1c; }
-
   /* Loader (spinner) dentro del autofill */
   .loader {
     border: 4px solid rgba(0,0,0,0.08);
@@ -130,7 +130,6 @@
   body.dark-mode details { background:#1c1c1c; border-color:#555; }
   body.dark-mode .plan-details { background:#1c1c1c; border-color:#555; }
   body.dark-mode .plan-details .col { background:#2a2a2a; }
-  body.dark-mode .autofill { background:#1c2b30; border-color:#fbf32f; }
   body.dark-mode .modal-content { background:#1e1e1e; color:#f1f1f1; }
   body.dark-mode h1, 
   body.dark-mode h2, 
@@ -169,11 +168,6 @@
   background: #d5d5d5;
   box-shadow: 0 0 6px rgba(0,0,0,0.15);
 }
-/* Estilo específico para el botón Reniec que queda solo */
-.small-buttons button:nth-child(1) { background: #444; color: #fff; }
-.small-buttons button:nth-child(1):hover { background: #222; }
-
-
 /* Contenedor para centrar el nuevo botón de cierre */
 .close-plan-container {
   display: flex;
@@ -227,7 +221,7 @@
 </details>
 
 <h2>Llenado de datos</h2>
-<form id="miFormulario" action="https://script.google.com/macros/s/AKfycbxcP33-cVM9CjSs_b-BPlD1fRz828bVTzS1yI3AM4CLUJHlXkh0D4S8Oxf30sG50f9YpQ/exec" method="post" target="hidden_iframe">
+<form id="miFormulario" action="#" method="post" target="hidden_iframe">
   <input type="hidden" name="token" value="BitelMigracion2025SuperClave">
 
   <div class="input-row">
@@ -314,19 +308,6 @@
 <div class="dni-container">
 <input type="number" name="dni" id="dni" placeholder="8 dígitos" required >
 </div>
-
-<div class="small-buttons">
-  <button type="button" onclick="abrirReniec()">🪪 Reniec</button>
-</div>
-
-  <div class="autofill" id="autofill">
-    <div class="loader" id="loader"></div>
-    <div class="input-row">
-      <div class="input-group"><label for="nombre">Nombre completo</label><input type="text" id="nombre" readonly></div>
-      <div class="input-group"><label for="fechaNacimiento">Fecha de nacimiento</label><input type="text" id="fechaNacimiento" readonly></div>
-      <div class="input-group"><label for="ubicacion">Departamento - Provincia - Distrito</label><input type="text" id="ubicacion" readonly></div>
-    </div>
-    </div>
 
 <br>
 
@@ -419,10 +400,6 @@
       <h3>🗣️ 2. Speech - Consideraciones</h3>
       <div id="consideraciones"></div>
     </div>
-  </div> <div class="close-plan-container">
-    <button type="button" class="btn-cerrar-plan" onclick="ocultarPlan()">
-      Ocultar Detalles ✨
-    </button>
   </div>
 </div>
 
@@ -454,23 +431,10 @@
   </div>
 </div>
 
-<div class="modal" id="modalReniec">
-  <div class="modal-content" style="max-width:920px; width:95%;">
-    <h2>Servicios Reniec</h2>
-    <p style="font-size:13px; color:#666; margin-top:-10px;">Si la página no permite ser embebida, use "Abrir en nueva pestaña".</p>
-    <iframe src="https://serviciosweb.reniec.gob.pe/aip/logout.do" title="RENIEC - Servicios" style="height:520px;"></iframe>
-    <div class="modal-buttons" style="margin-top:12px;">
-      <button class="btn-yes" onclick="window.open('https://serviciosweb.reniec.gob.pe/aip/logout.do','_blank')">Abrir en nueva pestaña</button>
-      <button class="btn-no" onclick="cerrarReniec()">Cerrar</button>
-    </div>
-  </div>
-</div>
-
 <script>
 /* ---------------------------
    Variables & Listeners base
    --------------------------- */
-const TOKEN = "cGVydWRldnMucHJvZHVjdGlvbi5maXRjb2RlcnMuNjhkMDQ2ODM3NzAwMmUxM2U0NzI4YWM0";
 let telefonoSolicitud, plan, codigo;
 
 const telefonoSolicitudEl = document.getElementById("telefonoSolicitud");
@@ -491,7 +455,6 @@ const modal = document.getElementById("modalConfirm");
 const btnYes = document.getElementById("btnYes");
 const btnNo = document.getElementById("btnNo");
 const modalLoader = document.getElementById("modalLoader");
-const modalReniec = document.getElementById("modalReniec");
 
 let envioEnProceso = false;
 
@@ -521,34 +484,28 @@ if (userInput) userInput.value = userInput.value.toLowerCase();
 
 // Reforzar formato en ID Entrante
 const idInput = document.getElementById("idEntrante");
-if (idInput && idInput.value && !idInput.value.startsWith("$$_")) {
-  idInput.value = `$$_${idInput.value}_&&`;
-}
+if (idInput) idInput.value = normalizarIdLlamada(idInput.value);
 
 // Reforzar formato en ID Saliente
 const idSalienteInput = document.getElementById("idsaliente");
-if (idSalienteInput && idSalienteInput.value && !idSalienteInput.value.startsWith("$$_")) {
-  idSalienteInput.value = `$$_${idSalienteInput.value}_&&`;
-}
+if (idSalienteInput) idSalienteInput.value = normalizarIdLlamada(idSalienteInput.value);
 
 // Mostrar loader
       if (modalLoader) modalLoader.classList.add("show");
 
 // Enviar datos
       const formData = new FormData(formulario);
-      fetch(formulario.action, {
-          method: "POST",
-          body: formData
-      })
-      .then(res => res.text())
+      window.mcApiCall(Object.fromEntries(formData.entries()), "POST")
+      .then(result => typeof result === "string" ? result : JSON.stringify(result))
       .then(txt => {
           if (modalLoader) modalLoader.classList.remove("show");
-          mostrarMensaje(txt);
+          if (txt.startsWith("✅ OK|")) mostrarMensaje(txt);
+          else mostrarError(txt.replace(/^❌\s*/, ''));
           envioEnProceso = false; // ✅ liberamos otra vez
       })
       .catch(err => {
           if (modalLoader) modalLoader.classList.remove("show");
-          document.getElementById("mensaje").innerHTML = "❌ Error al guardar los datos: " + err;
+          mostrarError(err && err.message ? err.message : String(err));
           envioEnProceso = false; // liberar aunque haya error
       });
   });
@@ -557,8 +514,7 @@ if (idSalienteInput && idSalienteInput.value && !idSalienteInput.value.startsWit
 
 // Al cargar la página, traer lista de usuarios desde la hoja "User"
 document.addEventListener("DOMContentLoaded", () => {
-fetch("https://script.google.com/macros/s/AKfycbxcP33-cVM9CjSs_b-BPlD1fRz828bVTzS1yI3AM4CLUJHlXkh0D4S8Oxf30sG50f9YpQ/exec?action=getUsers")
-    .then(res => res.json())
+window.mcApiCall({action:"getUsers",tipo:"migracion"}, "GET")
     .then(users => {
       const dataList = document.getElementById("usuarios-sugeridos");
       if (dataList) {
@@ -575,8 +531,14 @@ fetch("https://script.google.com/macros/s/AKfycbxcP33-cVM9CjSs_b-BPlD1fRz828bVTz
 
 
 
+function normalizarIdLlamada(value) {
+  const raw = String(value || '').trim().replace(/^\$\$_/, '').replace(/_&&$/, '');
+  return raw ? `$$_${raw}_&&` : '';
+}
+
 // Formato en tiempo real mejorado (soporta borrar y mantiene caret)
 function aplicarFormatoTiempoReal(input) {
+  input.addEventListener('blur', function(){ this.value = normalizarIdLlamada(this.value); });
   // Guardamos el estado previo antes del cambio para calcular el caret luego
   input.addEventListener("keydown", function (ev) {
     this._prevValue = this.value;
@@ -671,16 +633,6 @@ if (btnNo) {
 
 
 /* ---------------------------
-   Ocultar Detalles del Plan
-   --------------------------- */
-function ocultarPlan() {
-    const planDetails = document.getElementById("planDetails");
-    if (planDetails) {
-        planDetails.classList.remove("show");
-    }
-}
-
-/* ---------------------------
    Mensajes, limpiar, plan
    --------------------------- */
 function mostrarMensaje(respuesta){
@@ -709,12 +661,11 @@ function limpiar(){
     document.getElementById("speech").style.display = "none";
     document.getElementById("mensaje").innerHTML = "";
 
-    // Ocultar autofill y limpiar sus campos
-    const autofill = document.getElementById("autofill");
-    autofill.classList.remove("show");
-    document.getElementById("nombre").value = "";
-    document.getElementById("fechaNacimiento").value = "";
-    document.getElementById("ubicacion").value = "";
+}
+
+function mostrarError(detalle){
+    document.getElementById("mensaje").textContent = "❌ No se pudo guardar: " + detalle;
+    document.getElementById("speech").style.display = "none";
 }
 
 
@@ -1256,123 +1207,142 @@ function toggleManualInput() {
 
 
 /* ---------------------------
-   BÚSQUEDA DNI -> API PeruDevs
-   - muestra loader dentro del autofill mientras consulta
-   - si API responde: llena campos (nombre, fecha, ubicacion si aplica)
-   - si falla: usar fallback (datos ficticios)
-   --------------------------- */
-async function buscarDNI(){
-  const dni = document.getElementById("dni").value.trim();
-  if(dni.length !== 8){ alert("Ingrese un DNI válido de 8 dígitos"); return; }
-
-  const autofill = document.getElementById("autofill");
-  const loader = document.getElementById("loader");
-  const nombreEl = document.getElementById("nombre");
-  const fechaEl = document.getElementById("fechaNacimiento");
-  const ubicacionEl = document.getElementById("ubicacion");
-
-  // Mostrar autofill y loader
-  autofill.classList.add("show");
-  loader.style.display = "block";
-
-  // Vaciar o mostrar texto provisional
-  nombreEl.value = "Buscando...";
-  fechaEl.value = "Buscando...";
-  ubicacionEl.value = "Buscando...";
-
-  try {
-    const resp = await fetch(`https://api.perudevs.com/api/v1/dni/complete?document=${dni}&key=${TOKEN}`);
-    if(!resp.ok){
-      throw new Error("HTTP " + resp.status);
-    }
-    const data = await resp.json();
-
-    if(data && data.estado && data.resultado){
-      const r = data.resultado;
-
-      // Nombre y fecha — si no vienen, dejamos "No disponible"
-      nombreEl.value = r.nombre_completo || r.nombres || "No disponible";
-      fechaEl.value = r.fecha_nacimiento || "No disponible";
-
-      // Ubicación: la API de ejemplo no trae departamento/provincia/distrito,
-      // pero dejamos la lógica preparada por si la API los devuelve con estas keys.
-      const dept = r.departamento || r.departamento_nombre || r.departamentoName || "";
-      const prov = r.provincia || r.provincia_nombre || r.provinciaName || "";
-      const dist = r.distrito || r.distrito_nombre || r.distritoName || "";
-
-      if(dept || prov || dist){
-        const d = dept || "No disponible";
-        const p = prov || "No disponible";
-        const di = dist || "No disponible";
-        ubicacionEl.value = `${d} - ${p} - ${di}`;
-      } else {
-        // si no existen campos de ubicación en la respuesta, mostramos "No disponible"
-        ubicacionEl.value = r.ubigeo || "No disponible";
-      }
-    } else {
-      // no encontrado: usar fallback ficticio
-      usarFallback();
-    }
-  } catch (err) {
-    console.error("Error al consultar la API RENIEC:", err);
-    // fallback
-    usarFallback();
-  } finally {
-    // ocultar loader
-    document.getElementById("loader").style.display = "none";
-  }
-}
-
-/* Fallback: datos ficticios (como pediste) */
-function usarFallback(){
-  document.getElementById("nombre").value = "Juan Perez";
-  document.getElementById("fechaNacimiento").value = "15/08/1990";
-  document.getElementById("ubicacion").value = "Lima - Lima - San Isidro";
-  document.getElementById("loader").style.display = "none";
-  document.getElementById("autofill").classList.add("show");
-}
-
-/* Ocultar el bloque autofill cuando el usuario pulse la X */
-function ocultarDNI(){
-  document.getElementById("autofill").classList.remove("show");
-}
-
-/* Abrir Reniec en ventana emergente */
-/* Abrir Reniec en ventana emergente centrada con zoom 90% */
-function abrirReniec(){
-  // Tamaño base de la ventana
-  const w = 1200;
-  const h = 800;
-
-  // Calcular posición centrada en la pantalla
-  const left = (screen.width - w) / 2;
-  const top = (screen.height - h) / 2;
-
-  // Abrir ventana emergente centrada
-  const popup = window.open(
-    "https://serviciosweb.reniec.gob.pe/aip/logout.do",
-    "popupReniec",
-    `width=${w},height=${h},top=${top},left=${left},scrollbars=yes,resizable=yes`
-  );
-
-  // Cuando cargue, aplicamos zoom (scale 90%)
-  if (popup) {
-    popup.onload = function(){
-      try {
-        popup.document.body.style.zoom = "90%";39
-      } catch(e){
-        console.warn("No se puede aplicar zoom por políticas de la página externa (X-Frame-Options)");
-      }
-    };
-  }
-}
-
-/* ---------------------------
    Switch modo oscuro
    --------------------------- */
 document.getElementById("darkSwitch").addEventListener("change", function(){
     document.body.classList.toggle("dark-mode", this.checked);
 });
+</script>
+
+<!-- ================================================================
+     ACCESO Y ADMINISTRACIÓN DINÁMICA - MIGRACIONES/CANCELACIONES
+     ================================================================ -->
+<style>
+  .mc-hidden{display:none!important}.mc-overlay{position:fixed;inset:0;z-index:99990;background:linear-gradient(145deg,#f4fbfc,#fff);display:flex;align-items:center;justify-content:center;padding:22px;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Arial,sans-serif;color:#17333a}.mc-card{width:min(760px,96vw);background:#fff;border:1px solid #dcebed;border-radius:22px;box-shadow:0 24px 70px rgba(0,76,92,.18);padding:34px}.mc-logo{width:200px;height:54px;border-radius:16px;background:linear-gradient(135deg,#008da8,#005f77);display:grid;place-items:center;color:#fff;font-size:18px;margin:auto}.mc-title{text-align:center;margin:14px 0 6px;color:#006f84;letter-spacing:-.4px}.mc-sub{text-align:center;color:#61757a;margin:0 0 24px}.mc-role-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.mc-role{border:1px solid #d7e7ea;border-radius:16px;background:#fff;padding:20px;text-align:left;cursor:pointer;transition:.2s;font:inherit}.mc-role:hover{transform:translateY(-2px);border-color:#008da8;box-shadow:0 10px 28px rgba(0,110,132,.12)}.mc-role b{display:block;color:#006f84;font-size:17px;margin:8px 0}.mc-role span{color:#60757a;font-size:13px}.mc-login{max-width:420px;margin:auto}.mc-field{display:flex;flex-direction:column;gap:6px;margin:11px 0}.mc-field label{font-weight:650;color:#31555d;font-size:13px}.mc-field input,.mc-field select,.mc-field textarea{width:100%;box-sizing:border-box;border:1px solid #cbdde1;border-radius:10px;padding:10px 11px;font:inherit}.mc-btn{border:0;border-radius:10px;padding:10px 15px;background:#007f95;color:#fff;font:inherit;font-size:13px;font-weight:650;cursor:pointer}.mc-btn.secondary{background:#eef6f7;color:#17606e}.mc-btn.danger{background:#fff1f1;color:#b32727}.mc-btn.small{padding:7px 10px;font-size:12px}.mc-error{color:#b42318;background:#fff2f1;border-radius:9px;padding:10px;margin-top:10px}.mc-admin{position:fixed;inset:0;z-index:99980;background:#f5f8f9;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Arial,sans-serif;color:#17333a;overflow:auto;font-size:14px;line-height:1.35}.mc-top{position:sticky;top:0;z-index:5;background:#006f84;color:#fff;display:flex;justify-content:space-between;align-items:center;padding:11px 20px;box-shadow:0 2px 12px rgba(0,0,0,.12)}.mc-layout{display:grid;grid-template-columns:220px minmax(0,1fr);min-height:calc(100vh - 54px)}.mc-nav{background:#fff;border-right:1px solid #dce6e8;padding:14px 12px}.mc-nav button{display:block;width:100%;border:0;background:transparent;text-align:left;padding:10px 13px;border-radius:9px;margin:2px 0;color:#31555d;cursor:pointer;font:inherit;font-size:13px}.mc-nav button.active,.mc-nav button:hover{background:#e7f5f7;color:#006f84;font-weight:650}.mc-main{padding:20px 24px;max-width:none}.mc-main h2{font-size:20px;letter-spacing:-.35px;line-height:1.2}.mc-tools{display:flex;gap:10px;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;margin-bottom:12px}.mc-table-wrap{background:#fff;border:1px solid #dce6e8;border-radius:14px;overflow:auto}.mc-table{width:100%;border-collapse:collapse;min-width:720px}.mc-table th,.mc-table td{padding:10px 13px;border-bottom:1px solid #e7edef;text-align:left;vertical-align:middle}.mc-table th{background:#edf6f7;color:#24545e;font-size:12px}.mc-table td{font-size:13px}.mc-chip{display:inline-block;padding:3px 8px;border-radius:99px;background:#e3f6ec;color:#137044;font-size:11px;font-weight:700}.mc-chip.off{background:#f3f3f3;color:#777}.mc-modal{position:fixed;inset:0;z-index:100000;background:rgba(13,41,47,.55);display:flex;align-items:center;justify-content:center;padding:18px}.mc-dialog{width:min(900px,96vw);max-height:92vh;overflow:auto;background:#fff;border-radius:18px;padding:22px}.mc-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.mc-editor{min-height:130px;border:1px solid #cbdde1;border-radius:10px;padding:12px;background:#fff;overflow:auto}.mc-note{font-size:12px;color:#62777c}.mc-empty{padding:30px;text-align:center;color:#6b7c80}.mc-actions{display:flex;gap:7px;flex-wrap:wrap}.mc-session{font-size:12px}.mc-toast{position:fixed;right:20px;bottom:20px;z-index:100010;background:#17333a;color:#fff;padding:12px 16px;border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,.25)}
+  @media(max-width:760px){.mc-role-grid,.mc-grid{grid-template-columns:1fr}.mc-layout{grid-template-columns:1fr}.mc-nav{display:flex;overflow:auto;border-right:0;border-bottom:1px solid #dce6e8;padding:8px}.mc-nav button{min-width:max-content}.mc-main{padding:14px}.mc-card{padding:24px}}
+</style>
+<style>
+  body{font-size:14px;line-height:1.42;color:#172b33;background:#f4f7f8;padding:16px}
+  .container{width:min(1180px,96%);max-width:1180px;padding:24px 30px;border-radius:20px;box-shadow:0 14px 38px rgba(23,43,51,.09)}
+  h1{font-size:26px;letter-spacing:-.5px;margin:4px 0 14px}h2{font-size:19px;letter-spacing:-.25px;margin:18px 0 14px}
+  .input-row{gap:14px;margin-bottom:15px}.input-group label{font-size:13px;font-weight:600;color:#314b54;margin-bottom:6px}
+  input,select{min-height:43px;padding:10px 12px;border:1px solid #d4dfe2;border-radius:10px;font-size:14px;box-shadow:0 1px 1px rgba(0,0,0,.02)}
+  input:focus,select:focus{border-color:#01768b;box-shadow:0 0 0 3px rgba(1,118,139,.12);background:#fff}
+  .buttons{margin-top:20px}.buttons button{min-height:42px;padding:10px 20px;border-radius:10px;font-size:14px;font-weight:650}
+  .plan-details{border-color:#dce6e8;border-radius:14px;background:#f8fafb;padding:12px}.plan-details .row{gap:12px}.plan-details .col{padding:14px;border:1px solid #edf1f2;border-radius:10px;box-shadow:none}
+  @media(max-width:760px){body{padding:8px}.container{width:100%;padding:18px 14px;border-radius:14px}.input-row,.plan-details .row{grid-template-columns:1fr}.input-row{gap:10px;margin-bottom:10px}}
+</style>
+<style>
+.mc-busy{position:fixed;inset:0;z-index:100020;background:rgba(7,42,49,.38);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(2px)}
+.mc-busy-box{background:#fff;border-radius:16px;padding:22px 28px;box-shadow:0 18px 60px rgba(0,0,0,.22);font-weight:700;color:#006f84;display:flex;align-items:center;gap:13px}
+.mc-spinner{width:22px;height:22px;border:3px solid #cde6ea;border-top-color:#008da8;border-radius:50%;animation:mcSpin .75s linear infinite}
+.mc-busy{background:rgba(7,35,42,.62);backdrop-filter:blur(5px)}.mc-busy-box{min-width:min(360px,86vw);justify-content:flex-start;padding:24px 26px;border:1px solid rgba(255,255,255,.75)}.mc-busy-box .mc-spinner{width:30px;height:30px;border-width:4px}.mc-busy-copy{display:flex;flex-direction:column;gap:3px}.mc-busy-copy b{font-size:15px;color:#064f60}.mc-busy-copy small{font-size:12px;color:#60777c;font-weight:500}.mc-table th{padding:7px 12px!important;font-size:11px!important;line-height:1.15;white-space:nowrap}.mc-check{min-height:0!important;margin:0;vertical-align:middle}.mc-table thead .mc-check{width:16px;height:16px}.mc-color-tools{display:inline-flex;align-items:center;gap:5px;padding-left:3px}.mc-swatch{width:23px!important;min-width:23px!important;height:23px;padding:0!important;border-radius:50%!important;border:2px solid #fff!important;box-shadow:0 0 0 1px #aebfc3}.mc-hex{width:76px!important;min-height:30px!important;padding:5px 7px!important;font-size:11px!important;text-transform:uppercase}.mc-color-picker{width:32px!important;height:30px!important;min-height:30px!important;padding:2px!important}.mc-preview{margin-top:14px;border:1px solid #d8e5e8;border-radius:14px;background:#f7fafb;padding:14px}.mc-preview[hidden]{display:none}.mc-preview-head{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:10px}.mc-preview-head b{color:#0c477e}.mc-preview-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.mc-preview-card{background:#fff;border:1px solid #e1e9eb;border-radius:10px;padding:13px;min-height:90px}.mc-preview-card h4{margin:0 0 8px;color:#01768b;font-size:13px}.mc-preview-card ul,.mc-preview-card ol{padding-left:20px}.mc-preview-promo{margin-top:10px}.mc-preview-actions{display:flex;justify-content:flex-end;margin-top:8px}@media(max-width:760px){.mc-preview-grid{grid-template-columns:1fr}.mc-hex{width:68px!important}}
+.mc-filter{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0}.mc-filter button.active{background:#007f95;color:#fff}.mc-bulk{display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:#edf6f7;border-radius:12px;padding:10px 12px;margin-bottom:12px}.mc-check{width:18px;height:18px;accent-color:#007f95}.mc-editor-toolbar{display:flex;gap:5px;align-items:center;flex-wrap:wrap;padding:7px;background:#edf6f7;border:1px solid #cbdde1;border-bottom:0;border-radius:10px 10px 0 0}.mc-editor-toolbar button{border:1px solid #c3d9dd;background:#fff;border-radius:6px;min-width:32px;padding:6px;cursor:pointer}.mc-editor-toolbar input[type=color]{width:34px;height:31px;padding:2px;border:1px solid #c3d9dd;border-radius:6px;background:#fff}.mc-editor-toolbar+.mc-editor{border-radius:0 0 10px 10px}.mc-count{font-size:12px;color:#4d6970;font-weight:700}
+@keyframes mcSpin{to{transform:rotate(360deg)}}
+</style>
+<script>
+(function(){
+  'use strict';
+  const API_URL=window.MC_API_URL;
+  const CAMPAIGN=/cancel/i.test(document.title)?'cancelacion':'migracion';
+  const LABEL=CAMPAIGN==='migracion'?'Migraciones':'Cancelaciones';
+  const state={token:sessionStorage.getItem('mc_admin_token')||'',user:null,catalogs:[],plans:[],tab:'plan',planFilter:'ACTIVO'};
+  const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  const post=async(data)=>{const result=await window.mcApiCall(data,'POST');if(result&&typeof result==='object')return result;try{return JSON.parse(result)}catch(_){throw new Error(String(result||'Respuesta inválida del servidor').slice(0,500))}};
+  const get=async(params)=>{const result=await window.mcApiCall(params,'GET');if(result&&typeof result==='object')return result;try{return JSON.parse(result)}catch(_){throw new Error('Respuesta inválida del servidor')}};
+  function toast(message){const old=document.querySelector('.mc-toast');if(old)old.remove();const el=document.createElement('div');el.className='mc-toast';el.textContent=message;document.body.appendChild(el);setTimeout(()=>el.remove(),2800)}
+  function busy(show,message='Procesando cambios…'){let el=document.querySelector('#mcBusy');if(!show){el?.remove();return}if(!el){el=document.createElement('div');el.id='mcBusy';el.className='mc-busy';el.setAttribute('role','status');el.setAttribute('aria-live','assertive');el.innerHTML='<div class="mc-busy-box"><span class="mc-spinner"></span><div class="mc-busy-copy"><b></b><small>No cierre ni actualice esta ventana.</small></div></div>';document.body.appendChild(el)}el.querySelector('.mc-busy-copy b').textContent=message}
+  function accessScreen(){
+    if(document.querySelector('#mcAccess'))return;
+    const box=document.createElement('div');box.id='mcAccess';box.className='mc-overlay';box.innerHTML=`<div class="mc-card"><div id="mcRole"><div class="mc-logo">Migraciones</div><h2 class="mc-title">${LABEL}</h2><p class="mc-sub">Seleccione cómo desea ingresar</p><div class="mc-role-grid"><button class="mc-role" id="mcAgent">👤<b>Ingresar como agente</b><span>Acceder al formulario operativo habitual.</span></button><button class="mc-role" id="mcAdmin">⚙️<b>Ingresar como administrador</b><span>Gestionar información y configuraciones.</span></button></div></div><div id="mcLogin" class="mc-login mc-hidden"><button class="mc-btn secondary small" id="mcBack">← Volver</button><h2 class="mc-title">Acceso administrativo</h2><div class="mc-field"><label>Usuario</label><input id="mcUser" autocomplete="username"></div><div class="mc-field"><label>Contraseña</label><input id="mcPass" type="password" autocomplete="current-password"></div><button class="mc-btn" id="mcEnter" style="width:100%">Ingresar</button><div id="mcLoginError"></div></div></div>`;
+    document.body.appendChild(box);
+    document.documentElement.classList.remove('mc-access-loading');
+    box.querySelector('#mcAgent').onclick=()=>box.remove();
+    box.querySelector('#mcAdmin').onclick=()=>{box.querySelector('#mcRole').classList.add('mc-hidden');box.querySelector('#mcLogin').classList.remove('mc-hidden');box.querySelector('#mcUser').focus()};
+    box.querySelector('#mcBack').onclick=()=>{box.querySelector('#mcLogin').classList.add('mc-hidden');box.querySelector('#mcRole').classList.remove('mc-hidden')};
+    box.querySelector('#mcEnter').onclick=login;
+    box.querySelector('#mcPass').addEventListener('keydown',e=>{if(e.key==='Enter')login()});
+  }
+  async function login(){
+    const err=document.querySelector('#mcLoginError');err.innerHTML='';
+    try{const result=await post({action:'login',usuario:document.querySelector('#mcUser').value,clave:document.querySelector('#mcPass').value});if(!result.ok)throw new Error(result.error);state.token=result.token;state.user=result.user;sessionStorage.setItem('mc_admin_token',state.token);document.querySelector('#mcAccess')?.remove();await openAdmin()}catch(e){err.innerHTML='<div class="mc-error">'+esc(e.message)+'</div>'}
+  }
+  async function openAdmin(){
+    if(!state.user){const valid=await get({action:'validateSession',sessionToken:state.token});if(!valid.ok){sessionStorage.removeItem('mc_admin_token');accessScreen();return}state.user=valid.user}
+    document.documentElement.style.overflow='hidden';document.body.style.overflow='hidden';
+    let root=document.querySelector('#mcAdminRoot');if(!root){root=document.createElement('div');root.id='mcAdminRoot';root.className='mc-admin';document.body.appendChild(root)}
+    root.innerHTML=`<header class="mc-top"><div><b>Administración · ${LABEL}</b><div class="mc-session">${esc(state.user.name)} · ${esc(state.user.role)}</div></div><button class="mc-btn secondary small" id="mcLogout">Cerrar sesión</button></header><div class="mc-layout"><nav class="mc-nav" id="mcNav"></nav><main class="mc-main"><div id="mcContent"></div></main></div>`;
+    document.documentElement.classList.remove('mc-access-loading');root.querySelector('#mcLogout').onclick=logout;buildNav();await reloadAdmin();
+  }
+  function buildNav(){
+    const items=[['plan',CAMPAIGN==='migracion'?'Planes':'Consideraciones'],['usuario','Usuarios agentes']];
+    if(CAMPAIGN==='migracion')items.push(['ciclo','Ciclos']);
+    items.push(['motivoPrincipal','Motivos principales'],['motivoSecundario','Motivos secundarios']);
+    if(state.user.role==='ADMIN')items.push(['accounts','Accesos administrativos']);
+    items.push(['history','Historial']);
+    const nav=document.querySelector('#mcNav');nav.innerHTML=items.map(i=>`<button data-tab="${i[0]}" class="${state.tab===i[0]?'active':''}">${i[1]}</button>`).join('');
+    nav.querySelectorAll('button').forEach(b=>b.onclick=()=>{state.tab=b.dataset.tab;buildNav();renderTab()});
+  }
+  async function reloadAdmin(){const result=await post({action:'adminList',sessionToken:state.token,campaign:CAMPAIGN});if(!result.ok)throw new Error(result.error);state.catalogs=result.catalogs||[];state.plans=result.plans||[];renderTab()}
+  function renderTab(){
+    if(state.tab==='accounts')return renderAccounts();if(state.tab==='history')return renderHistory();
+    const isPlan=state.tab==='plan';const all=isPlan?state.plans:state.catalogs.filter(x=>x.type===state.tab);const list=isPlan&&state.planFilter!=='TODOS'?all.filter(x=>x.status===state.planFilter):all;const writable=state.user.role!=='SEGUIMIENTO';
+    const title=isPlan?(CAMPAIGN==='migracion'?'Planes y contenido asociado':'Grupos de consideraciones'):document.querySelector(`#mcNav [data-tab="${state.tab}"]`)?.textContent;
+    const filters=isPlan?`<div class="mc-filter"><button class="mc-btn secondary small ${state.planFilter==='ACTIVO'?'active':''}" data-filter="ACTIVO">Activos (${all.filter(x=>x.status==='ACTIVO').length})</button><button class="mc-btn secondary small ${state.planFilter==='INACTIVO'?'active':''}" data-filter="INACTIVO">Inactivos (${all.filter(x=>x.status==='INACTIVO').length})</button><button class="mc-btn secondary small ${state.planFilter==='TODOS'?'active':''}" data-filter="TODOS">Todos (${all.length})</button></div>`:'';
+    const bulk=isPlan&&writable&&list.length?`<div class="mc-bulk"><span class="mc-count" id="mcSelectedCount">0 seleccionados</span><button class="mc-btn secondary small" data-bulk="ACTIVO">Activar</button><button class="mc-btn secondary small" data-bulk="INACTIVO">Desactivar</button>${state.user.role==='ADMIN'?'<button class="mc-btn danger small" data-bulk="DELETE">Eliminar</button>':''}</div>`:'';
+    const content=document.querySelector('#mcContent');content.innerHTML=`<div class="mc-tools"><div><h2 style="margin:0">${esc(title)}</h2><div class="mc-note">${isPlan?'Beneficios, promoción y consideraciones se guardan como un solo grupo.':'Active, desactive, ordene o modifique las opciones disponibles.'}</div>${filters}</div><div class="mc-actions">${(state.catalogs.length===0&&state.plans.length===0&&writable)?'<button class="mc-btn secondary" id="mcImport">Importar configuración actual</button>':''}${state.tab==='usuario'&&writable?'<button class="mc-btn secondary" id="mcBulkUsers">＋ Agregar varios</button>':''}${writable?'<button class="mc-btn" id="mcNew">＋ Agregar</button>':''}</div></div>${bulk}<div class="mc-table-wrap">${list.length?tableHtml(list,isPlan):'<div class="mc-empty">No hay registros en esta vista.</div>'}</div>`;
+    content.querySelector('#mcNew')?.addEventListener('click',()=>isPlan?planModal():catalogModal());content.querySelector('#mcImport')?.addEventListener('click',importCurrent);
+    content.querySelector('#mcBulkUsers')?.addEventListener('click',bulkUsersModal);content.querySelectorAll('[data-filter]').forEach(b=>b.onclick=()=>{state.planFilter=b.dataset.filter;renderTab()});
+    const updateCount=()=>{const n=content.querySelectorAll('.mc-row-check:checked').length;const out=content.querySelector('#mcSelectedCount');if(out)out.textContent=`${n} seleccionado${n===1?'':'s'}`};
+    content.querySelector('#mcCheckAll')?.addEventListener('change',e=>{content.querySelectorAll('.mc-row-check').forEach(c=>c.checked=e.target.checked);updateCount()});content.querySelectorAll('.mc-row-check').forEach(c=>c.onchange=updateCount);content.querySelectorAll('[data-bulk]').forEach(b=>b.onclick=()=>bulkPlans(b.dataset.bulk));
+    content.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>{const item=list.find(x=>x.id===b.dataset.edit);isPlan?planModal(item):catalogModal(item)});
+    content.querySelectorAll('[data-status]').forEach(b=>b.onclick=()=>setStatus(b.dataset.entity,b.dataset.status,b.dataset.current==='ACTIVO'?'INACTIVO':'ACTIVO'));
+    content.querySelectorAll('[data-delete]').forEach(b=>b.onclick=()=>deleteItem(b.dataset.entity,b.dataset.delete));
+  }
+  function tableHtml(list,isPlan){return `<table class="mc-table"><thead><tr>${isPlan&&state.user.role!=='SEGUIMIENTO'?'<th><input id="mcCheckAll" class="mc-check" type="checkbox" aria-label="Seleccionar todos"></th>':''}<th>${isPlan?'Nombre':'Valor'}</th><th>${isPlan?'Categoría':'Etiqueta'}</th><th>Estado</th><th>Orden</th><th>Acciones</th></tr></thead><tbody>${list.map(x=>`<tr>${isPlan&&state.user.role!=='SEGUIMIENTO'?`<td><input class="mc-check mc-row-check" type="checkbox" value="${esc(x.id)}" aria-label="Seleccionar ${esc(x.name)}"></td>`:''}<td><b>${esc(isPlan?x.name:x.value)}</b></td><td>${esc(isPlan?x.category:x.label)}</td><td><span class="mc-chip ${x.status==='INACTIVO'?'off':''}">${esc(x.status)}</span></td><td>${Number(x.order||0)}</td><td><div class="mc-actions">${state.user.role!=='SEGUIMIENTO'?`<button class="mc-btn secondary small" data-edit="${esc(x.id)}">Editar</button><button class="mc-btn secondary small" data-entity="${isPlan?'plan':'catalog'}" data-status="${esc(x.id)}" data-current="${esc(x.status)}">${x.status==='INACTIVO'?'Activar':'Desactivar'}</button>`:''}${state.user.role==='ADMIN'?`<button class="mc-btn danger small" data-entity="${isPlan?'plan':'catalog'}" data-delete="${esc(x.id)}">Eliminar</button>`:''}</div></td></tr>`).join('')}</tbody></table>`}
+  function nextOrder(list){return Math.max(0,...list.map(x=>Number(x.order)||0))+1}
+  function suggestedOrder(item,isPlan){if(item.id)return Number(item.order)||0;return nextOrder(isPlan?state.plans:state.catalogs.filter(x=>x.type===state.tab))}
+  function initRichEditors(modal){modal.querySelectorAll('.mc-editor').forEach(editor=>{let savedRange=null;const saveRange=()=>{const s=window.getSelection();if(s&&s.rangeCount&&editor.contains(s.anchorNode))savedRange=s.getRangeAt(0).cloneRange()};const apply=(cmd,value=null)=>{editor.focus();if(savedRange){const s=window.getSelection();s.removeAllRanges();s.addRange(savedRange)}document.execCommand(cmd,false,value);saveRange();editor.dispatchEvent(new Event('input',{bubbles:true}))};editor.addEventListener('keyup',saveRange);editor.addEventListener('mouseup',saveRange);editor.addEventListener('focus',saveRange);const colors=['#111827','#0c477e','#01768b','#15803d','#f59e0b','#dc2626','#7c3aed'];const bar=document.createElement('div');bar.className='mc-editor-toolbar';bar.innerHTML='<button type="button" data-cmd="bold" title="Negrita"><b>B</b></button><button type="button" data-cmd="italic" title="Cursiva"><i>I</i></button><button type="button" data-cmd="underline" title="Subrayado"><u>U</u></button><button type="button" data-cmd="insertUnorderedList" title="Viñetas">• Lista</button><button type="button" data-cmd="insertOrderedList" title="Lista numerada">1. Lista</button><span class="mc-color-tools" title="Color del texto">'+colors.map(c=>`<button type="button" class="mc-swatch" data-color="${c}" style="background:${c}" aria-label="Aplicar color ${c}"></button>`).join('')+'<input class="mc-hex" data-hex placeholder="#HEX" maxlength="7" aria-label="Color hexadecimal"><input class="mc-color-picker" type="color" value="#dc2626" title="Buscar otro color"></span><button type="button" data-link title="Agregar vínculo">🔗</button><button type="button" data-cmd="unlink" title="Quitar vínculo">⛓️‍💥</button><button type="button" data-cmd="removeFormat" title="Quitar formato">Tx</button>';editor.before(bar);bar.querySelectorAll('[data-cmd]').forEach(b=>b.onmousedown=e=>{e.preventDefault();apply(b.dataset.cmd)});bar.querySelectorAll('[data-color]').forEach(b=>b.onmousedown=e=>{e.preventDefault();apply('foreColor',b.dataset.color)});const hex=bar.querySelector('[data-hex]');hex.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();let v=hex.value.trim();if(!v.startsWith('#'))v='#'+v;if(!/^#[0-9a-f]{6}$/i.test(v))return toast('Ingrese un HEX válido, por ejemplo #DC2626');hex.value=v.toUpperCase();apply('foreColor',v)}};bar.querySelector('.mc-color-picker').oninput=e=>apply('foreColor',e.target.value);bar.querySelector('[data-link]').onmousedown=e=>{e.preventDefault();const url=prompt('Pegue la dirección del vínculo (https://...)');if(url)apply('createLink',url)}})}
+  function initPlanPreview(modal){const btn=modal.querySelector('[data-preview-button]'),box=modal.querySelector('[data-preview]');if(!btn||!box)return;const render=()=>{const val=n=>modal.querySelector(`[data-f="${n}"]`)?.innerHTML||modal.querySelector(`[data-f="${n}"]`)?.value||'';const name=modal.querySelector('[data-f="name"]')?.value||'Vista previa sin nombre';const benefits=val('benefits'),promotion=val('promotion'),considerations=val('considerations');box.innerHTML=`<div class="mc-preview-head"><b>${esc(name)}</b><span class="mc-note">Así lo verá el agente</span></div>${CAMPAIGN==='migracion'?`<div class="mc-preview-grid"><div class="mc-preview-card"><h4>🗣️ Beneficios</h4>${benefits||'<span class="mc-note">Sin contenido</span>'}${promotion?`<div class="mc-preview-promo">${promotion}</div>`:''}</div><div class="mc-preview-card"><h4>🗣️ Consideraciones</h4>${considerations||'<span class="mc-note">Sin contenido</span>'}</div></div>`:`<div class="mc-preview-card"><h4>🗣️ Speech y consideraciones</h4>${benefits}${promotion}${considerations||'<span class="mc-note">Sin contenido</span>'}</div>`}`};btn.onclick=()=>{box.hidden=!box.hidden;if(!box.hidden){render();btn.textContent='Ocultar vista previa'}else btn.textContent='Vista previa agente'};modal.querySelectorAll('.mc-editor,[data-f="name"]').forEach(el=>el.addEventListener('input',()=>{if(!box.hidden)render()}))}
+  function modalShell(title,body,onSave){const modal=document.createElement('div');modal.className='mc-modal';modal.innerHTML=`<div class="mc-dialog"><h2>${esc(title)}</h2>${body}<div class="mc-actions" style="justify-content:flex-end;margin-top:18px"><button class="mc-btn secondary" data-close>Cancelar</button><button class="mc-btn" data-save>Guardar</button></div><div data-error></div></div>`;document.body.appendChild(modal);initRichEditors(modal);initPlanPreview(modal);const close=modal.querySelector('[data-close]'),save=modal.querySelector('[data-save]');close.onclick=()=>modal.remove();modal.addEventListener('click',e=>{if(e.target===modal)modal.remove()});save.onclick=async()=>{close.disabled=true;save.disabled=true;busy(true,'Guardando cambios…');try{await onSave(modal);await reloadAdmin();modal.remove();toast('Cambios guardados correctamente')}catch(e){modal.querySelector('[data-error]').innerHTML='<div class="mc-error">'+esc(e.message)+'</div>';close.disabled=false;save.disabled=false}finally{busy(false)}};return modal}
+  function catalogModal(item={}){modalShell(item.id?'Editar opción':'Agregar opción',`<div class="mc-grid"><div class="mc-field"><label>Valor guardado</label><input data-f="value" value="${esc(item.value||'')}"></div><div class="mc-field"><label>Texto visible</label><input data-f="label" value="${esc(item.label||'')}"></div><div class="mc-field"><label>Categoría opcional</label><input data-f="category" value="${esc(item.category||'')}"></div><div class="mc-field"><label>Orden</label><input data-f="order" type="number" min="1" value="${suggestedOrder(item,false)}"><span class="mc-note">Se sugiere automáticamente el siguiente orden disponible.</span></div></div>`,async m=>{const f=n=>m.querySelector(`[data-f="${n}"]`).value;const r=await post({action:'adminSaveCatalog',sessionToken:state.token,campaign:CAMPAIGN,type:state.tab,id:item.id||'',value:f('value'),label:f('label'),category:f('category'),order:f('order'),status:item.status||'ACTIVO'});if(!r.ok)throw new Error(r.error)})}
+  function planModal(item={}){const label=CAMPAIGN==='migracion'?'Plan':'Grupo';modalShell(item.id?`Editar ${label.toLowerCase()}`:`Agregar ${label.toLowerCase()}`,`<div class="mc-grid"><div class="mc-field"><label>Nombre visible</label><input data-f="name" value="${esc(item.name||'')}"></div><div class="mc-field"><label>Categoría</label><input data-f="category" value="${esc(item.category||'')}"></div><div class="mc-field"><label>Orden</label><input data-f="order" type="number" min="1" value="${suggestedOrder(item,true)}"><span class="mc-note">Siguiente orden disponible calculado automáticamente.</span></div><div></div></div><div class="mc-field"><label>${CAMPAIGN==='migracion'?'Beneficios':'Speech principal'}</label><div class="mc-editor" contenteditable="true" data-f="benefits">${item.benefits||''}</div></div><div class="mc-field"><label>Promoción ${CAMPAIGN==='cancelacion'?'(opcional)':''}</label><div class="mc-editor" contenteditable="true" data-f="promotion">${item.promotion||''}</div></div><div class="mc-field"><label>Consideraciones</label><div class="mc-editor" contenteditable="true" data-f="considerations">${item.considerations||''}</div></div><div class="mc-preview-actions"><button type="button" class="mc-btn secondary" data-preview-button>Vista previa agente</button></div><div class="mc-preview" data-preview hidden></div><p class="mc-note">Use los colores rápidos, escriba un código HEX y presione Enter, o abra el selector para buscar otro color.</p>`,async m=>{const value=n=>{const el=m.querySelector(`[data-f="${n}"]`);return el.isContentEditable?el.innerHTML:el.value};const r=await post({action:'adminSavePlan',sessionToken:state.token,campaign:CAMPAIGN,id:item.id||'',name:value('name'),category:value('category'),order:value('order'),benefits:value('benefits'),promotion:value('promotion'),considerations:value('considerations'),status:item.status||'ACTIVO'});if(!r.ok)throw new Error(r.error)})}
+  async function setStatus(entity,id,status){busy(true,status==='INACTIVO'?'Desactivando registro…':'Activando registro…');try{const r=await post({action:'adminSetStatus',sessionToken:state.token,campaign:CAMPAIGN,entity,id,status});if(!r.ok)throw new Error(r.error);await reloadAdmin();await loadPublicConfig();toast(status==='INACTIVO'?'Registro desactivado':'Registro activado')}catch(e){toast(e.message)}finally{busy(false)}}
+  async function deleteItem(entity,id){if(!confirm('¿Eliminar definitivamente este registro? Esta acción quedará registrada en el historial.'))return;busy(true,'Eliminando registro…');try{const r=await post({action:'adminDelete',sessionToken:state.token,campaign:CAMPAIGN,entity,id});if(!r.ok)throw new Error(r.error);await reloadAdmin();await loadPublicConfig();toast('Registro eliminado')}catch(e){toast(e.message)}finally{busy(false)}}
+  async function bulkPlans(operation){const ids=Array.from(document.querySelectorAll('.mc-row-check:checked')).map(c=>c.value);if(!ids.length)return toast('Seleccione al menos un plan');const verb=operation==='DELETE'?'eliminar definitivamente':operation==='ACTIVO'?'activar':'desactivar';if(!confirm(`¿Desea ${verb} ${ids.length} registro${ids.length===1?'':'s'}?`))return;busy(true,'Procesando selección…');try{const r=await post({action:'adminBulkAction',sessionToken:state.token,campaign:CAMPAIGN,entity:'plan',operation,ids:JSON.stringify(ids)});if(!r.ok)throw new Error(r.error);await reloadAdmin();await loadPublicConfig();toast(`${r.count} registro${r.count===1?'':'s'} procesado${r.count===1?'':'s'}`)}catch(e){toast(e.message)}finally{busy(false)}}
+  function bulkUsersModal(){modalShell('Agregar varios usuarios',`<div class="mc-field"><label>Usuarios agentes</label><textarea data-f="users" rows="12" placeholder="Pegue uno por línea, o sepárelos por coma o punto y coma"></textarea></div><p class="mc-note">Los usuarios existentes se conservarán y quedarán activos. Los nuevos se agregarán al final.</p>`,async m=>{const users=m.querySelector('[data-f="users"]').value.split(/[\n,;]+/).map(v=>v.trim()).filter(Boolean);const r=await post({action:'adminBulkUsers',sessionToken:state.token,campaign:CAMPAIGN,users:JSON.stringify(users)});if(!r.ok)throw new Error(r.error);toast(`${r.added} agregados y ${r.updated} actualizados`)})}
+  async function renderAccounts(){const content=document.querySelector('#mcContent');content.innerHTML='<div class="mc-empty">Cargando accesos…</div>';const r=await post({action:'adminListAccounts',sessionToken:state.token});if(!r.ok)return content.innerHTML='<div class="mc-error">'+esc(r.error)+'</div>';content.innerHTML=`<div class="mc-tools"><div><h2 style="margin:0">Accesos administrativos</h2><div class="mc-note">Las contraseñas existentes nunca se muestran.</div></div><button class="mc-btn" id="mcNewAccount">＋ Agregar acceso</button></div><div class="mc-table-wrap"><table class="mc-table"><thead><tr><th>Usuario</th><th>Nombres</th><th>Permiso</th><th>Estado</th><th></th></tr></thead><tbody>${r.accounts.map(a=>`<tr><td>${esc(a.username)}</td><td>${esc(a.name)}</td><td>${esc(a.role)}</td><td>${esc(a.status)}</td><td><div class="mc-actions"><button class="mc-btn secondary small" data-account="${esc(a.username)}">Editar</button><button class="mc-btn danger small" data-del-account="${esc(a.username)}">Eliminar</button></div></td></tr>`).join('')}</tbody></table></div>`;content.querySelector('#mcNewAccount').onclick=()=>accountModal();content.querySelectorAll('[data-account]').forEach(b=>b.onclick=()=>accountModal(r.accounts.find(a=>a.username===b.dataset.account)));content.querySelectorAll('[data-del-account]').forEach(b=>b.onclick=()=>deleteAccount(b.dataset.delAccount))}
+  function accountModal(item={}){modalShell(item.username?'Editar acceso':'Agregar acceso',`<div class="mc-grid"><div class="mc-field"><label>Usuario</label><input data-f="username" ${item.username?'readonly':''} value="${esc(item.username||'')}"></div><div class="mc-field"><label>Nombres</label><input data-f="name" value="${esc(item.name||'')}"></div><div class="mc-field"><label>Permiso</label><select data-f="role">${['ADMIN','SUPERVISOR','SEGUIMIENTO'].map(v=>`<option ${item.role===v?'selected':''}>${v}</option>`).join('')}</select></div><div class="mc-field"><label>Estado</label><select data-f="status"><option ${item.status!=='INACTIVO'?'selected':''}>ACTIVO</option><option ${item.status==='INACTIVO'?'selected':''}>INACTIVO</option></select></div><div class="mc-field"><label>${item.username?'Nueva contraseña (dejar vacío para conservar)':'Contraseña'}</label><input data-f="password" type="password"></div></div>`,async m=>{const f=n=>m.querySelector(`[data-f="${n}"]`).value;const r=await post({action:'adminSaveAccount',sessionToken:state.token,username:f('username'),name:f('name'),role:f('role'),status:f('status'),password:f('password')});if(!r.ok)throw new Error(r.error);renderAccounts()})}
+  async function deleteAccount(username){if(!confirm('¿Eliminar definitivamente este acceso administrativo?'))return;const r=await post({action:'adminDeleteAccount',sessionToken:state.token,username});if(!r.ok)return toast(r.error);await renderAccounts();toast('Acceso eliminado')}
+  async function renderHistory(){const content=document.querySelector('#mcContent');content.innerHTML='<div class="mc-empty">Cargando historial…</div>';const r=await post({action:'adminHistory',sessionToken:state.token});if(!r.ok)return content.innerHTML='<div class="mc-error">'+esc(r.error)+'</div>';content.innerHTML=`<div class="mc-tools"><div><h2 style="margin:0">Historial de cambios</h2><div class="mc-note">Últimos 200 movimientos administrativos.</div></div></div><div class="mc-table-wrap"><table class="mc-table"><thead><tr><th>Fecha</th><th>Usuario</th><th>Permiso</th><th>Campaña</th><th>Acción</th><th>Sección</th></tr></thead><tbody>${r.history.map(h=>`<tr><td>${esc(h.date)}</td><td>${esc(h.name||h.user)}</td><td>${esc(h.role)}</td><td>${esc(h.campaign)}</td><td>${esc(h.action)}</td><td>${esc(h.section)}</td></tr>`).join('')}</tbody></table></div>`}
+  async function logout(){try{await post({action:'logout',sessionToken:state.token})}catch(_){}sessionStorage.removeItem('mc_admin_token');state.token='';state.user=null;document.querySelector('#mcAdminRoot')?.remove();document.documentElement.style.overflow='';document.body.style.overflow='';accessScreen()}
+  function optionData(select,type){if(!select)return[];return Array.from(select.options).filter(o=>o.value).map((o,i)=>({type,value:o.value,label:o.textContent.trim(),category:o.parentElement.tagName==='OPTGROUP'?o.parentElement.label:'',order:i+1}))}
+  async function importCurrent(){
+    if(!confirm('Se copiará al Excel la configuración que actualmente está escrita en esta página. ¿Continuar?'))return;
+    const catalogs=[];
+    document.querySelectorAll('#usuarios-sugeridos option').forEach((o,i)=>catalogs.push({type:'usuario',value:o.value,label:o.value,order:i+1}));
+    if(CAMPAIGN==='migracion')catalogs.push(...optionData(document.querySelector('#ciclo'),'ciclo'));
+    catalogs.push(...optionData(document.querySelector('#motivoPrincipal'),'motivoPrincipal'));
+    const secondary=CAMPAIGN==='migracion'?document.querySelector('#motivos-sugeridos'):document.querySelector('#motivo');
+    if(secondary?.tagName==='DATALIST')Array.from(secondary.options).filter(o=>o.value&&o.value!=='manual_input').forEach((o,i)=>catalogs.push({type:'motivoSecundario',value:o.value,label:o.value,order:i+1}));else catalogs.push(...optionData(secondary,'motivoSecundario'));
+    const planSelect=document.querySelector('#plan'),plans=[];const original=planSelect?.value;
+    if(planSelect){for(const [i,o] of Array.from(planSelect.options).filter(o=>o.value).entries()){planSelect.value=o.value;try{window.mostrarPlan()}catch(_){}await new Promise(r=>setTimeout(r,0));let benefits=document.querySelector('#detalle')?.innerHTML||'',considerations=document.querySelector('#consideraciones')?.innerHTML||'';let promotion='';const promoIndex=benefits.search(/<p[^>]*>\s*(?:<[^>]+>\s*)*Promoci[oó]n/i);if(promoIndex>=0){promotion=benefits.slice(promoIndex);benefits=benefits.slice(0,promoIndex)}if(CAMPAIGN==='cancelacion'&&!considerations){considerations=benefits;benefits=''}plans.push({name:o.value,category:o.parentElement.tagName==='OPTGROUP'?o.parentElement.label:'',benefits,promotion,considerations,order:i+1})}planSelect.value=original||'';try{window.mostrarPlan()}catch(_){}}
+    const r=await post({action:'adminImport',sessionToken:state.token,campaign:CAMPAIGN,payload:JSON.stringify({catalogs,plans})});if(!r.ok)return toast(r.error);await reloadAdmin();await loadPublicConfig();toast(`Importación completada: ${r.catalogs} opciones y ${r.plans} grupos`)
+  }
+  function populateSelect(el,items,placeholder='Seleccione'){if(!el)return;const current=el.value;el.innerHTML=`<option value="">${placeholder}</option>`;const groups={};items.forEach(item=>{const category=item.category||'';(groups[category]||(groups[category]=[])).push(item)});Object.entries(groups).forEach(([category,rows])=>{const parent=category?Object.assign(document.createElement('optgroup'),{label:category}):el;rows.forEach(item=>{const o=document.createElement('option');o.value=item.value;o.textContent=item.label||item.value;parent.appendChild(o)});if(category)el.appendChild(parent)});el.value=current}
+  async function loadPublicConfig(){
+    try{const r=await get({action:'getConfig',tipo:CAMPAIGN});if(!r.ok||!r.data?.initialized)return;const c=r.data.catalogs||[],plans=r.data.plans||[];
+      const users=document.querySelector('#usuarios-sugeridos');if(users){users.innerHTML='';c.filter(x=>x.type==='usuario').forEach(x=>users.appendChild(Object.assign(document.createElement('option'),{value:x.value})))}
+      populateSelect(document.querySelector('#motivoPrincipal'),c.filter(x=>x.type==='motivoPrincipal'));
+      if(CAMPAIGN==='migracion'){populateSelect(document.querySelector('#ciclo'),c.filter(x=>x.type==='ciclo'));const dl=document.querySelector('#motivos-sugeridos');if(dl){dl.innerHTML='';c.filter(x=>x.type==='motivoSecundario').forEach(x=>dl.appendChild(Object.assign(document.createElement('option'),{value:x.value})))} }
+      else populateSelect(document.querySelector('#motivo'),c.filter(x=>x.type==='motivoSecundario'));
+      const planSelect=document.querySelector('#plan');if(planSelect){const items=plans.map(p=>({value:p.name,label:p.name,category:p.category}));populateSelect(planSelect,items,'Seleccione:');const map=new Map(plans.map(p=>[p.name,p]));window.mostrarPlan=function(){const p=map.get(planSelect.value),details=document.querySelector('#planDetails'),detail=document.querySelector('#detalle'),considerations=document.querySelector('#consideraciones');if(!p){if(detail)detail.innerHTML='';if(considerations)considerations.innerHTML='';details?.classList.remove('show');return}if(CAMPAIGN==='migracion'){if(detail)detail.innerHTML=(p.benefits||'')+(p.promotion?`<section class="mc-promotion">${p.promotion}</section>`:'');if(considerations)considerations.innerHTML=p.considerations||''}else if(detail)detail.innerHTML=(p.benefits||'')+(p.promotion||'')+(p.considerations||'');details?.classList.add('show')}}
+    }catch(e){console.warn('No se pudo cargar la configuración dinámica:',e)}
+  }
+  function addSwitchButton(){if(document.querySelector('#mcSwitchAccess'))return;const b=document.createElement('button');b.id='mcSwitchAccess';b.type='button';b.className='mc-btn secondary small';b.textContent='Cambiar acceso';b.style.cssText='position:fixed;left:14px;bottom:14px;z-index:9000;box-shadow:0 5px 18px rgba(0,0,0,.16)';b.onclick=accessScreen;document.body.appendChild(b)}
+  document.addEventListener('DOMContentLoaded',async()=>{addSwitchButton();await loadPublicConfig();if(state.token){try{const v=await get({action:'validateSession',sessionToken:state.token});if(v.ok){state.user=v.user;await openAdmin();return}}catch(e){console.warn('No se pudo restaurar la sesión:',e)}sessionStorage.removeItem('mc_admin_token');state.token=''}accessScreen()});
+  window.cambiarTipoDeAcceso=accessScreen;
+})();
 </script>
 
 </body>
