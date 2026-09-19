@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta name="mc-api-url" content="__MC_API_URL__">
+<script>
+  (function () {
+    const githubApi = 'https://script.google.com/macros/s/AKfycbxcP33-cVM9CjSs_b-BPlD1fRz828bVTzS1yI3AM4CLUJHlXkh0D4S8Oxf30sG50f9YpQ/exec';
+    const injected = (document.querySelector('meta[name="mc-api-url"]')?.content || '').trim();
+    window.MC_API_URL = /^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/(?:exec|dev)$/.test(injected) ? injected : githubApi;
+  })();
+</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Cancelaciones</title>
+<style>
+  body { 
+    font-family: Arial, sans-serif; 
+    background: #F4F9FB; 
+    margin:0; padding:20px; 
+    display:flex; justify-content:center; align-items:flex-start; 
+    min-height:100vh; 
+    transition: background 0.3s, color 0.3s; 
+  }
+  .container { 
+    background:#fff; 
+    padding:20px 30px; 
+    border-radius:14px; 
+    box-shadow:0px 6px 14px rgba(0,0,0,0.1); 
+    width:90%; max-width:1000px; 
+    box-sizing:border-box; 
+    transition: background 0.3s, color 0.3s; 
+  }
+  h1 { text-align:center; color:#01768b; margin-bottom:10px; font-size:28px; font-weight:bold; }
+  h1 + hr { border:0; height:4px; background:#fbf32f; border-radius:3px; margin-bottom:20px; }
+  details { margin-bottom:25px; border:1px solid #ccc; border-radius:8px; padding:10px 15px; background:#fafafa; transition: background 0.3s; }
+  details summary { font-weight:bold; cursor:pointer; color:#0c477e; font-size:16px; }
+  details p { margin:10px 0; font-size:15px; color:#333; }
+  h2 { color:#0c477e; font-size:20px; margin-top:20px; border-bottom:3px solid #fbf32f; display:inline-block; padding-bottom:3px; }
+  h3 { border-bottom:2px solid #fbf32f; padding-bottom:4px; }
+
+  .input-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 20px; }
+  .input-group { display: flex; flex-direction: column; }
+  .input-group label { font-size: 14px; margin-bottom: 5px; font-weight: 500; color: #333; transition: color 0.3s; }
+  input, select { width: 100%; padding: 10px; font-size: 14px; border: 1.5px solid #ccc; border-radius: 8px; outline: none; transition: 0.3s; background: #fff; box-sizing:border-box; min-height: 38px; color:#333; }
+  input:focus, select:focus { border-color: #01768b; background: #f8ffff; }
+  .input-with-mark { display:flex; align-items:center; gap:4px; }
+  .input-with-mark span { color:#000; transition: color 0.3s; }
+
+  .dni-container { display:flex; gap:10px; }
+  .dni-container input { flex:1; padding:10px; border:1.5px solid #ccc; border-radius:8px; font-size:14px; }
+
+  .buttons { margin-top:25px; display:flex; gap:12px; justify-content:center; flex-wrap:wrap; }
+  .buttons button { padding:12px 24px; border:none; border-radius:8px; cursor:pointer; font-weight:500; transition:0.3s; font-size:15px; background:#01768b; color:white; }
+  .buttons button:hover { background:#0c477e; box-shadow:0 0 8px #fbf32f; }
+
+  #mensaje { margin-top:25px; text-align:center; font-size:15px; font-weight:500; color:#01768b; }
+  #speech { margin-top:25px; padding:15px; border:1px dashed #01768b; border-radius:8px; background:#fdfdfd; display:none; color:#333; }
+  #speech h3 { margin-top:0; margin-bottom:10px; color:#0c477e; font-size:20px; font-weight:bold; }
+  #speech .green { color:#01768b; font-weight:bold; }
+  .blue { color:#0c477e; }
+
+  .plan-details { margin-top:15px; padding:15px; border:1px solid #ccc; border-radius:8px; background:#fafafa; display:none; transition: background 0.3s; }
+  .plan-details.show { display:block; }
+  .plan-details .row { display:grid; grid-template-columns:1fr 0fr; gap:20px; }
+  .plan-details .col { padding:10px; background:#fff; border-radius:6px; box-shadow:0 2px 6px rgba(0,0,0,0.05); }
+  .plan-details h3 { margin-top:0; color:#01768b; font-size:16px; }
+
+  /* Bloque autofill con animación y estilo */
+  .autofill { 
+    overflow: hidden; 
+    max-height: 0; 
+    opacity: 0; 
+    transition: max-height 0.5s ease, opacity 0.5s ease; 
+    background: #e7f7f9; 
+    border: 1px solid #01768b; 
+    border-radius: 10px; 
+    padding: 0 15px; 
+    margin-top: 15px;
+    position: relative;
+  }
+  .autofill.show { 
+    max-height: 500px; 
+    opacity: 1; 
+    padding: 15px; 
+  }
+  .autofill .input-row { margin-bottom: 10px; }
+  .autofill button { 
+    background:#c62828; 
+    color:white; 
+    padding:6px 12px; 
+    border:none; 
+    border-radius:6px; 
+    cursor:pointer; 
+    margin-top:10px;
+  }
+  .autofill button:hover { background:#a61c1c; }
+
+  /* Loader (spinner) dentro del autofill */
+  .loader {
+    border: 4px solid rgba(0,0,0,0.08);
+    border-top: 4px solid #01768b;
+    border-radius: 50%;
+    width: 28px;
+    height: 28px;
+    animation: spin 1s linear infinite;
+    margin: 8px auto 12px auto;
+    display: none;
+  }
+  @keyframes spin { 100% { transform: rotate(360deg); } }
+
+  /* Modal confirmación */
+  .modal { display:none; position:fixed; z-index:1000; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); justify-content:center; align-items:center; }
+  .modal.show { display:flex; }
+  .modal-content { background:#fff; padding:25px; border-radius:12px; text-align:center; max-width:400px; box-shadow:0 6px 14px rgba(0,0,0,0.2); color:#333; }
+  .modal-content h2 { color:#0c477e; margin-bottom:15px; }
+  .modal-buttons { display:flex; justify-content:center; gap:15px; margin-top:20px; flex-wrap:wrap; }
+  .modal-buttons button { padding:10px 20px; border:none; border-radius:6px; cursor:pointer; font-weight:500; color:#fff; }
+  .btn-yes { background:#01768b; } .btn-yes:hover { background:#0c477e; box-shadow:0 0 6px #fbf32f; }
+  .btn-no { background:#c62828; } .btn-no:hover { background:#a61c1c; }
+
+  /* Switch modo oscuro */
+  .switch { position: relative; display: inline-block; width: 50px; height: 25px; }
+  .switch input { display:none; }
+  .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 25px; }
+  .slider:before { position: absolute; content: ""; height: 19px; width: 19px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+  input:checked + .slider { background-color: #fbf32f; }
+  input:checked + .slider:before { transform: translateX(24px); }
+
+  /* Estilos modo oscuro */
+  body.dark-mode { background-color: #121212; color: #f1f1f1; }
+  body.dark-mode .container { background:#1e1e1e; color:#f1f1f1; }
+  body.dark-mode input, 
+  body.dark-mode select { background-color: #222; color:#f1f1f1; border: 1px solid #666; }
+  body.dark-mode .input-group label,
+  body.dark-mode .input-with-mark span,
+  body.dark-mode details p,
+  body.dark-mode details summary { color:#f1f1f1; }
+  body.dark-mode details { background:#1c1c1c; border-color:#555; }
+  body.dark-mode .plan-details { background:#1c1c1c; border-color:#555; }
+  body.dark-mode .plan-details .col { background:#2a2a2a; }
+  body.dark-mode .autofill { background:#1c2b30; border-color:#fbf32f; }
+  body.dark-mode .modal-content { background:#1e1e1e; color:#f1f1f1; }
+  body.dark-mode h1, 
+  body.dark-mode h2, 
+  body.dark-mode h3 { color:#fbf32f; }
+  body.dark-mode #speech { background:#1c1c1c; border-color:#fbf32f; color:#eee; }
+  body.dark-mode #speech h3 { color:#fbf32f; }
+  body.dark-mode #mensaje { color:#fbf32f; }
+  body.dark-mode .blue { color:#4eaaff; }
+  body.dark-mode .green { color:#a6ff8a; }
+
+  @media (max-width:768px){ 
+    .input-row { grid-template-columns: 1fr; } 
+    .plan-details .row { grid-template-columns:1fr; } 
+    .buttons button, .modal-buttons button { width:100%; } 
+  }
+
+/* Botones secundarios más pequeños */
+.small-buttons {
+  margin-top: 10px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.small-buttons button {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  background: #e0e0e0;
+  color: #333;
+  transition: 0.3s;
+}
+.small-buttons button:hover {
+  background: #d5d5d5;
+  box-shadow: 0 0 6px rgba(0,0,0,0.15);
+}
+/* Estilo específico para el botón Reniec que queda solo */
+.small-buttons button:nth-child(1) { background: #444; color: #fff; }
+.small-buttons button:nth-child(1):hover { background: #222; }
+
+/* Contenedor para centrar el nuevo botón de cierre */
+.close-plan-container {
+  display: flex;
+  justify-content: center;
+  margin-top: 20px; 
+}
+
+/* Estilo principal del nuevo botón de cierre con animación */
+.btn-cerrar-plan {
+  background: linear-gradient(45deg, #01768b, #0c477e); 
+  color: white;
+  border: none;
+  border-radius: 10px; 
+  padding: 12px 30px; 
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  letter-spacing: 0.5px; 
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  transition: all 0.3s ease; 
+}
+.btn-cerrar-plan:hover {
+  transform: translateY(-3px); 
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3), 0 0 10px #fbf32f; 
+  background: linear-gradient(45deg, #0c477e, #01768b); 
+}
+</style>
+</head>
+<body>
+
+<div style="position: absolute; top: 15px; right: 20px;">
+  <label class="switch">
+    <input type="checkbox" id="darkSwitch">
+    <span class="slider"></span>
+  </label>
+</div>
+
+<div class="container">
+<h1>Cancelaciones</h1>
+
+<details>
+  <summary>Presentación:</summary>
+<p>1. “Hola, te habla <span class="blue">(Nombre del agente)</span> de Bitel. ¿Me brindaría su nombre por favor?"</p>
+<p>2. <span class="blue">(Nombre del cliente)</span>, ¿Qué operación va a realizar?</p>
+<p>3. “La cancelación es la eliminación del número por completo, ¿es lo que desea realizar?</p>
+<p>4. “El número que llama es el que quiere cancelar, el que termina en <span class="blue">XXXX</span>”</p>
+</details>
+
+<h2>Llenado de datos</h2>
+<form id="miFormulario" action="#" method="post">
+  <input type="hidden" name="token" value="BitelMigracion2025SuperClave">
+
+  <div class="input-row">
+    <div class="input-group">
+      <label for="usuarioAgente">Usuario de agente</label>
+      <div class="input-with-mark">
+        <input list="usuarios-sugeridos" name="usuarioAgente" id="usuarioAgente" placeholder="cpc_xxxxxx_vtp" style="text-transform: lowercase;" required>
+        <datalist id="usuarios-sugeridos"></datalist>
+      </div>
+    </div>
+
+    <div class="input-group">
+      <label for="idEntrante">ID de llamada entrante</label>
+      <div class="input-with-mark">
+        <input type="text" name="idEntrante" id="idEntrante" placeholder="(ID directo)" >
+      </div>
+    </div>
+
+    <div class="input-group">
+      <label for="idsaliente">ID de llamada saliente</label>
+      <div class="input-with-mark">
+        <input type="text" name="idsaliente" id="idsaliente" placeholder="(ID directo)" >
+      </div>
+    </div>
+  </div>
+
+  <div class="input-row">
+    <div class="input-group">
+      <label for="telefonoEntrante">Número del que llama</label>
+      <input type="number" name="telefonoEntrante" id="telefonoEntrante" placeholder="9 dígitos" required maxlength="9" oninput="this.value=this.value.slice(0,9)">
+    </div>
+
+    <div class="input-group">
+      <label for="telefonoSolicitud" style="color:red;">Número a cancelar:</label>
+      <input type="number" name="telefonoSolicitud" id="telefonoSolicitud" placeholder="9 dígitos" required maxlength="9" oninput="this.value=this.value.slice(0,9)">
+    </div>
+    
+    <div class="input-group">
+      <label for="planActual">Plan actual</label>
+      <input type="text" name="planActual" id="planActual" placeholder="Plan que figura en Customer Care" required>
+    </div>
+  </div>
+
+  <div class="input-row">
+    <div class="input-group">
+      <label for="motivoPrincipal">Motivo principal de cancelación</label>
+      <select name="motivoPrincipal" id="motivoPrincipal" required>
+        <option value="">Seleccione</option>
+        <option value="Precio">Precio</option>
+        <option value="No uso de beneficios">No uso de beneficios</option>
+        <option value="Mala oferta comercial">Mala oferta comercial</option>
+        <option value="Mala señal">Mala señal</option>
+        <option value="Fallas en el servicio">Fallas en el servicio</option>
+        <option value="Mala información">Mala información</option>
+        <option value="Otros">Otros</option>
+      </select>
+    </div>
+
+    <div class="input-group">
+      <label for="motivo">Motivo secundario de cancelación</label>
+      <select name="motivo" id="motivo" required>
+        <option value="">Seleccione</option>
+        <option value="Bloqueo por robo o pérdida">Bloqueo por robo o pérdida</option>
+        <option value="Centro de pagos no cercanos">Centro de pagos no cercanos</option>
+        <option value="Cuenta con otra línea">Cuenta con otra línea</option>
+        <option value="Desconocimiento de la línea control">Desconocimiento de la línea control</option>
+        <option value="Equipo malogrado">Equipo malogrado</option>
+        <option value="Forma de realizar pagos es complicado">Forma de realizar pagos es complicado</option>
+        <option value="Incumplimiento de promociones ofrecidas">Incumplimiento de promociones ofrecidas</option>
+        <option value="Mala experiencia presentada en Bitel">Mala experiencia presentada en Bitel</option>
+        <option value="Mejor oferta de otro operador">Mejor oferta de otro operador</option>
+        <option value="Motivo de viaje">Motivo de viaje</option>
+        <option value="Motivos Personales">Motivos Personales</option>
+        <option value="No desea el servicio">No desea el servicio</option>
+        <option value="Pérdida de SIM Card">Pérdida de SIM Card</option>
+        <option value="Precios y promociones no son atractivos">Precios y promociones no son atractivos</option>
+        <option value="Problema no solucionado - Reclamo o incidencia pendiente">Problema no solucionado - Reclamo o incidencia pendiente</option>
+        <option value="Problemas con facturación">Problemas con facturación</option>
+        <option value="Problemas de registro con WhatsApp por ser número reciclado">Problemas de registro con WhatsApp por ser número reciclado</option>
+        <option value="Problemas de Servicio - Internet">Problemas de Servicio - Internet</option>
+        <option value="Problemas de Servicio - Llamadas">Problemas de Servicio - Llamadas</option>
+        <option value="Problemas de Servicio - Señal">Problemas de Servicio - Señal</option>
+        <option value="Problemas de Servicio – SMS">Problemas de Servicio – SMS</option>
+        <option value="Problemas económicos">Problemas económicos</option>
+        <option value="Recepción de llamadas de entidades bancarias">Recepción de llamadas de entidades bancarias</option>
+        <option value="Recibe llamadas malintencionadas">Recibe llamadas malintencionadas</option>
+        <option value="Servicio de Atención al cliente presencial no brinda solución">Servicio de Atención al cliente presencial no brinda solución</option>
+        <option value="Servicio de Atención al cliente telefónico no brinda solución">Servicio de Atención al cliente telefónico no brinda solución</option>
+        <option value="Suspendido por deuda en anterior operador">Suspendido por deuda en anterior operador</option>
+      </select>
+    </div>
+  </div>
+
+<br>
+
+<div class="input-group">
+  <label id="labelFechaCancela" for="FechaCancela">
+    Calculando fechas disponibles...
+  </label>
+  <input type="date" name="FechaCancela" id="FechaCancela" required>
+  <p id="estadoFechas" style="font-size:13px;color:#666;margin-top:6px;">Cargando feriados...</p>
+</div>
+
+
+<div class="input-group">
+<label for="dni">Número de documento de identidad</label>
+<div class="dni-container">
+<input type="number" name="dni" id="dni" placeholder="8 dígitos" required >
+</div>
+
+<div class="small-buttons">
+  <button type="button" onclick="abrirReniec()">🪪 Reniec</button>
+</div>
+
+  <div class="autofill" id="autofill">
+    <div class="loader" id="loader"></div>
+    <div class="input-row">
+      <div class="input-group"><label for="nombre">Nombre completo</label><input type="text" id="nombre" readonly></div>
+      <div class="input-group"><label for="fechaNacimiento">Fecha de nacimiento</label><input type="text" id="fechaNacimiento" readonly></div>
+      <div class="input-group"><label for="ubicacion">Departamento - Provincia - Distrito</label><input type="text" id="ubicacion" readonly></div>
+    </div>
+    </div>
+
+
+<div class="input-group">
+  <label for="plan">Consideraciones</label>
+  <select name="plan" id="plan" onchange="mostrarPlan()" required>
+    <option value="">Seleccione:</option>
+
+    <optgroup label="Prepago">
+      <option value="Consideraciones prepago">Consideraciones - Prepago</option>
+    </optgroup>
+
+    <optgroup label="Control">
+      <option value="Consideraciones control">Consideraciones - Control</option>
+    </optgroup>
+
+  </select> </div>
+  </div>
+
+<div class="plan-details" id="planDetails">
+  <div class="row">
+    <div class="col">
+      <h3>🗣️ 1. Speech:</h3>
+      <div id="detalle"></div>
+    </div>
+  </div> <div class="close-plan-container">
+    <button type="button" class="btn-cerrar-plan" onclick="ocultarPlan()">
+      Ocultar Detalles ✨
+    </button>
+  </div>
+</div>
+
+  <div class="buttons">
+    <button type="submit">Guardar</button>
+    <button type="button" onclick="limpiar()">Limpiar</button>
+  </div>
+</form>
+
+<div id="mensaje"></div>
+<div id="speech"></div>
+
+
+
+<div class="modal" id="modalConfirm">
+  <div class="modal-content">
+    <h2>¿Desea guardar la información?</h2>
+    <div class="modal-buttons">
+      <button class="btn-yes" id="btnYes">Sí</button>
+      <button class="btn-no" id="btnNo">No</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="modalLoader">
+  <div class="modal-content">
+    <h2>Procesando, espere un momento...</h2>
+    <div class="loader" style="width:40px; height:40px; border-width:5px; margin-top:10px;"></div>
+  </div>
+</div>
+
+<div class="modal" id="modalReniec">
+  <div class="modal-content" style="max-width:920px; width:95%;">
+    <h2>Servicios Reniec</h2>
+    <p style="font-size:13px; color:#666; margin-top:-10px;">Si la página no permite ser embebida, use "Abrir en nueva pestaña".</p>
+    <iframe src="https://serviciosweb.reniec.gob.pe/aip/logout.do" title="RENIEC - Servicios" style="height:520px;"></iframe>
+    <div class="modal-buttons" style="margin-top:12px;">
+      <button class="btn-yes" onclick="window.open('https://serviciosweb.reniec.gob.pe/aip/logout.do','_blank')">Abrir en nueva pestaña</button>
+      <button class="btn-no" onclick="cerrarReniec()">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+
+// ======== Funciones utilitarias ========
+function toLocalISO(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+function formatearDDMMYYYY(date) {
+  const d = String(date.getDate()).padStart(2, "0");
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const y = date.getFullYear();
+  return `${d}/${m}/${y}`;
+}
+
+// ======== Feriados ========
+async function obtenerFeriadosPeru(year) {
+  try {
+    const resp = await fetch(`https://date.nager.at/api/v3/PublicHolidays/${year}/PE`);
+    if (!resp.ok) throw new Error("resp no ok");
+    const data = await resp.json();
+    return data.map(item => item.date);
+  } catch (e) {
+    console.warn("No se pudieron obtener feriados para", year, e);
+    return [];
+  }
+}
+async function obtenerFeriadosRango(year) {
+  const [a, b] = await Promise.all([obtenerFeriadosPeru(year), obtenerFeriadosPeru(year + 1)]);
+  return [...(a || []), ...(b || [])];
+}
+
+// ======== Días hábiles ========
+async function agregarDiasHabiles(fechaInicio, dias, feriadosArray) {
+  const resultado = new Date(fechaInicio);
+  let contador = 0;
+  while (contador < dias) {
+    resultado.setDate(resultado.getDate() + 1);
+    const diaSemana = resultado.getDay();
+    const iso = toLocalISO(resultado);
+    if (diaSemana === 0 || diaSemana === 6) continue;
+    if (feriadosArray.includes(iso)) continue;
+    contador++;
+  }
+  return resultado;
+}
+
+// ======== Inicialización ========
+async function inicializarFechasCancelacion() {
+  const labelEl = document.getElementById("labelFechaCancela");
+  const inputEl = document.getElementById("FechaCancela");
+  const estadoEl = document.getElementById("estadoFechas");
+
+  estadoEl.textContent = "🔄 Obteniendo feriados oficiales…";
+
+  const hoy = new Date();
+  const feriados = await obtenerFeriadosRango(hoy.getFullYear());
+
+  if (!feriados || feriados.length === 0) {
+    estadoEl.textContent = "⚠️ No se cargaron feriados (usando respaldo local 2025).";
+    if (hoy.getFullYear() === 2025) {
+      feriados.push(
+        "2025-01-01","2025-04-17","2025-04-18","2025-05-01","2025-06-07","2025-06-29",
+        "2025-07-23","2025-07-28","2025-07-29","2025-08-06","2025-08-30","2025-10-08",
+        "2025-11-01","2025-12-08","2025-12-09","2025-12-25"
+      );
+    }
+  } else {
+    estadoEl.textContent = "✅ Feriados cargados correctamente.";
+    estadoEl.style.color = "#777";
+  }
+
+  // Calcular fechas con lógica corregida
+  // ➤ Mínimo: 6 días hábiles después de hoy
+  const fechaMin = await agregarDiasHabiles(hoy, 6, feriados);
+
+  // ➤ Máximo: 30 días calendario desde HOY (contando el mismo día)
+  const fechaMax = new Date(hoy);
+  fechaMax.setDate(hoy.getDate() + 29); // ✅ Ajuste: contar el mismo día como día 1
+
+  // Mostrar texto actualizado
+  labelEl.innerHTML = `
+    "(Nombre del abonado), la cancelación del servicio se realiza en un plazo no menor de cinco (5) días hábiles ni mayor de un (1) mes calendario. Si hoy es <b>${formatearDDMMYYYY(hoy)}</b>, puedes programar la baja entre el 
+    <b>${formatearDDMMYYYY(fechaMin)}</b> y el <b>${formatearDDMMYYYY(fechaMax)}</b>.
+    ¿En qué fecha deseas programarla?"
+  `;
+
+  // Configurar límites del input date
+  inputEl.min = toLocalISO(fechaMin);
+  inputEl.max = toLocalISO(fechaMax);
+  inputEl.value = "";
+}
+
+inicializarFechasCancelacion();
+
+
+/* ---------------------------
+   Variables & Listeners base
+   --------------------------- */
+const TOKEN = "cGVydWRldnMucHJvZHVjdGlvbi5maXRjb2RlcnMuNjhkMDQ2ODM3NzAwMmUxM2U0NzI4YWM0";
+let telefonoSolicitud, plan, codigo;
+
+const telefonoSolicitudEl = document.getElementById("telefonoSolicitud");
+if (telefonoSolicitudEl) {
+  telefonoSolicitudEl.addEventListener("input", function(){
+    telefonoSolicitud = this.value;
+  });
+}
+const planEl = document.getElementById("plan");
+if (planEl) {
+  planEl.addEventListener("change", function(){
+    plan = this.value;
+  });
+}
+
+const formulario = document.getElementById("miFormulario");
+const modal = document.getElementById("modalConfirm");
+const btnYes = document.getElementById("btnYes");
+const btnNo = document.getElementById("btnNo");
+const modalLoader = document.getElementById("modalLoader");
+const modalReniec = document.getElementById("modalReniec");
+
+let envioEnProceso = false;
+
+/* Al enviar el formulario: mostrar modal */
+if (formulario) {
+  formulario.addEventListener("submit", function(e){
+      e.preventDefault();
+      // Evitar que se muestre otra vez si ya se está enviando
+      if (envioEnProceso) return;
+      modal.classList.add("show");
+  });
+}
+
+
+
+/* Si confirma: enviar form via fetch al nuevo script */
+if (btnYes) {
+  btnYes.addEventListener("click", async function() {
+    modal.classList.remove("show");
+    envioEnProceso = true;
+
+    const userInput = document.getElementById("usuarioAgente");
+    if (userInput) userInput.value = userInput.value.toLowerCase();
+
+    const idInput = document.getElementById("idEntrante");
+    if (idInput && idInput.value && !idInput.value.startsWith("$$_")) {
+      idInput.value = `$$_${idInput.value}_&&`;
+    }
+
+    const idSalienteInput = document.getElementById("idsaliente");
+    if (idSalienteInput && idSalienteInput.value && !idSalienteInput.value.startsWith("$$_")) {
+      idSalienteInput.value = `$$_${idSalienteInput.value}_&&`;
+    }
+
+    if (modalLoader) modalLoader.classList.add("show");
+
+
+// Convertir fecha a DD/MM/AAAA
+const fechaRaw = document.getElementById("FechaCancela").value;
+let fechaFormateada = "";
+if (fechaRaw) {
+  const [yyyy, mm, dd] = fechaRaw.split("-");
+  fechaFormateada = `${dd}/${mm}/${yyyy}`;
+}
+
+// PREPARAR DATOS CON LOS NUEVOS CAMPOS
+const datos = {
+  token: "BitelMigracion2025SuperClave",
+  tipo: "cancelacion",
+  usuarioAgente: document.getElementById("usuarioAgente").value.trim(),
+  idEntrante: document.getElementById("idEntrante").value.trim(),
+  idsaliente: document.getElementById("idsaliente").value.trim(),
+  telefonoEntrante: document.getElementById("telefonoEntrante").value.trim(),
+  telefonoSolicitud: document.getElementById("telefonoSolicitud").value.trim(),
+  // Nuevos campos
+  planActual: document.getElementById("planActual").value.trim(),
+  motivoPrincipal: document.getElementById("motivoPrincipal").value.trim(),
+  // El antiguo motivo ahora es el secundario
+  motivoSecundario: document.getElementById("motivo").value.trim(),
+  
+  FechaCancela: fechaFormateada,
+  dni: document.getElementById("dni").value.trim()
+};
+
+
+    try {
+const resp = await fetch(window.MC_API_URL, {
+        method: "POST",
+        body: new URLSearchParams(datos)
+      });
+      const texto = await resp.text();
+
+      if (modalLoader) modalLoader.classList.remove("show");
+
+      if (texto.startsWith("✅ OK|")) {
+        const codigo = texto.split("|")[1];
+        mostrarMensaje(`✅ Datos guardados correctamente.<br><span class="codigo">🔐 Código de solicitud: ${codigo}</span>`);
+      } else {
+        mostrarMensaje("❌ Error al guardar los datos: " + texto);
+      }
+    } catch (err) {
+      if (modalLoader) modalLoader.classList.remove("show");
+      mostrarMensaje("❌ Error al conectar con el servidor: " + err.message);
+    }
+
+    envioEnProceso = false;
+  });
+}
+
+
+// Al cargar la página, traer lista de usuarios desde la hoja "User" (columna B)
+document.addEventListener("DOMContentLoaded", () => {
+fetch(window.MC_API_URL + "?action=getUsers&tipo=cancelacion")
+    .then(res => res.json())
+    .then(users => {
+      const dataList = document.getElementById("usuarios-sugeridos");
+      if (dataList) {
+        dataList.innerHTML = "";
+        users.forEach(user => {
+          const option = document.createElement("option");
+          option.value = user;
+          dataList.appendChild(option);
+        });
+      }
+    })
+    .catch(err => console.error("Error cargando usuarios:", err));
+});
+
+
+// Formato en tiempo real mejorado (soporta borrar y mantiene caret)
+function aplicarFormatoTiempoReal(input) {
+  // Guardamos el estado previo antes del cambio para calcular el caret luego
+  input.addEventListener("keydown", function (ev) {
+    this._prevValue = this.value;
+    this._prevSelStart = this.selectionStart;
+    this._prevSelEnd = this.selectionEnd;
+  });
+
+  input.addEventListener("input", function (e) {
+
+// Valor previo (formateado) y raw previo
+    const prevVal = this._prevValue !== undefined ? this._prevValue : this.value;
+    const prevRaw = prevVal.replace(/^\$\$_/, "").replace(/_&&$/, "");
+
+// Valor actual (posible que el usuario haya escrito símbolos manualmente)
+    let current = this.value;
+
+    // Sacamos cualquier prefijo/sufijo que haya quedado para obtener el raw real
+    let raw = current.replace(/^\$\$_/, "").replace(/_&&$/, "");
+
+    // Normalizamos raw (por si el usuario pegó caracteres $/_)
+    // Aquí sólo eliminamos las ocurrencias exactas del prefijo/sufijo.
+    // No tocamos otros caracteres para no borrar el texto legítimo.
+    // Si el campo queda vacío, lo dejamos vacío (sin símbolos).
+    if (!raw) {
+      this.value = "";
+      // actualizar estado previo para próximos eventos
+      this._prevValue = this.value;
+      this._prevSelStart = this.selectionStart;
+      this._prevSelEnd = this.selectionEnd;
+      return;
+    }
+
+// Calculamos índice relativo en raw basado en la selección anterior
+    let prevCaret = (this._prevSelStart !== undefined) ? this._prevSelStart : (3 + prevRaw.length);
+    let caretRawIndex;
+    if (prevCaret <= 3) caretRawIndex = 0;
+    else caretRawIndex = Math.max(0, Math.min(prevRaw.length, prevCaret - 3));
+
+// Intento de ajuste según el tipo de entrada (insert/delete)
+    const inputType = e.inputType || "";
+    if (inputType.startsWith("insert")) {
+
+// Si se insertó texto, colocamos el caret después del nuevo char (si es posible)
+
+// Estimamos que el usuario insertó en la posición caretRawIndex
+      caretRawIndex = Math.min(raw.length, caretRawIndex + 1);
+    } else if (inputType.startsWith("delete")) {
+
+// En caso de borrado, caretRawIndex ya apunta bien (no lo incrementamos)
+      caretRawIndex = Math.min(raw.length, caretRawIndex);
+    } else {
+
+// otros (paste, cut, etc.) → ajustar al final del segmento editado
+      caretRawIndex = Math.min(raw.length, caretRawIndex);
+    }
+
+// Seteamos el valor formateado
+    const newFormatted = `$$_${raw}_&&`;
+    this.value = newFormatted;
+
+// Colocamos el caret en la posición correspondiente (antes del sufijo)
+    const newCaretPos = 3 + Math.max(0, Math.min(raw.length, caretRawIndex));
+    try {
+      this.setSelectionRange(newCaretPos, newCaretPos);
+    } catch (err) {
+
+// en algunos navegadores/estados puede fallar; no es crítico
+    }
+
+// Actualizamos estado previo para el siguiente evento
+    this._prevValue = this.value;
+    this._prevSelStart = this.selectionStart;
+    this._prevSelEnd = this.selectionEnd;
+  });
+}
+
+// Conexión a los inputs (déjalas o reemplázalas si ya existen)
+const idEntranteEl = document.getElementById("idEntrante");
+const idSalienteEl = document.getElementById("idsaliente");
+
+if (idEntranteEl) aplicarFormatoTiempoReal(idEntranteEl);
+if (idSalienteEl) aplicarFormatoTiempoReal(idSalienteEl);
+
+
+
+/* Si cancela guardar */
+if (btnNo) {
+  btnNo.addEventListener("click", function(){
+      modal.classList.remove("show");
+  });
+}
+
+
+/* ---------------------------
+   Ocultar Detalles del Plan
+   --------------------------- */
+function ocultarPlan() {
+    const planDetails = document.getElementById("planDetails");
+    if (planDetails) {
+        planDetails.classList.remove("show");
+    }
+}
+
+/* ---------------------------
+   Mensajes, limpiar, plan
+   --------------------------- */
+function mostrarMensaje(respuesta) {
+  // Buscar cualquier código que empiece con "BA" y tenga al menos 3 dígitos
+  const match = respuesta.match(/BA\d{3,}/i);
+  const codigo = match ? match[0].toUpperCase() : "N/A";
+
+  document.getElementById("mensaje").innerHTML = `
+    ✅ Datos guardados correctamente.<br>
+    <span class="codigo">🔐 Código de solicitud: ${codigo}</span>
+  `;
+      document.getElementById("speech").style.display = "block";
+    document.getElementById("speech").innerHTML = `
+        <h3>🗣️ Speech de confirmación:</h3>
+        <p>“La cancelación del <span class="green">${telefonoSolicitud}</span> se ejecutará el XX/XX/XXXX.</p>
+        <p>El código de solicitud es <span class="green">${codigo}</span> y lo recibirá por SMS y/o email.</p>
+        <p>“Eso sería todo de mi parte, gracias por comunicarse. En breve recibirá una encuesta por SMS para calificar mi atención. Que tenga un excelente día.”</p>
+    `;
+}
+
+function limpiar(){
+    formulario.reset();
+    document.getElementById("planDetails").classList.remove("show");
+    document.getElementById("speech").style.display = "none";
+    document.getElementById("mensaje").innerHTML = "";
+
+    // Ocultar autofill y limpiar sus campos
+    const autofill = document.getElementById("autofill");
+    autofill.classList.remove("show");
+    document.getElementById("nombre").value = "";
+    document.getElementById("fechaNacimiento").value = "";
+    document.getElementById("ubicacion").value = "";
+}
+
+
+function mostrarPlan(){
+  const planSelect = document.getElementById("plan").value;
+  const detalle = document.getElementById("detalle");
+  const planDetails = document.getElementById("planDetails");
+
+  if (planSelect === "Consideraciones prepago") {
+    detalle.innerHTML = `
+
+<ul>
+<li>El proceso no tiene costo.</li>
+<li>La baja se ejecutará el XX/XX/XXXX.</li>
+<li>Recuerda que perderás tu número y cualquier saldo o promoción vigente.</li>
+</ul>
+<p>¿Está de acuerdo con realizar la cancelación?</p>
+    `;
+
+    planDetails.classList.add("show");
+
+
+  } else if (planSelect === "Consideraciones control") {
+    detalle.innerHTML = `
+
+<ul>
+<li>El proceso no tiene costo, pero si tiene deudas o penalidades quedarán pendientes de pago.</li>
+<li>La baja se ejecutará el XX/XX/XXXX.</li>
+<li>Recuerda que perderás tu número y cualquier saldo o promoción vigente</li>
+</ul>
+<p>¿Está de acuerdo con realizar la cancelación?</p>
+
+    `;
+
+    planDetails.classList.add("show");
+
+  } else {
+    planDetails.classList.remove("show");
+  }
+}
+
+/* ---------------------------
+   BÚSQUEDA DNI -> SOLO FALLBACK/VACIO SI NO HAY BOTON
+   (Las funciones buscarDNI y ocultarDNI se mantienen por si decides re-activar los botones,
+    pero al no estar los botones en el HTML, no se ejecutarán desde la UI).
+   --------------------------- */
+async function buscarDNI(){
+  // Función desactivada visualmente
+}
+
+function ocultarDNI(){
+  document.getElementById("autofill").classList.remove("show");
+}
+
+/* Abrir Reniec en ventana emergente */
+function abrirReniec(){
+  const w = 1200;
+  const h = 800;
+  const left = (screen.width - w) / 2;
+  const top = (screen.height - h) / 2;
+
+  const popup = window.open(
+    "https://serviciosweb.reniec.gob.pe/aip/logout.do",
+    "popupReniec",
+    `width=${w},height=${h},top=${top},left=${left},scrollbars=yes,resizable=yes`
+  );
+
+  if (popup) {
+    popup.onload = function(){
+      try {
+        popup.document.body.style.zoom = "90%";
+      } catch(e){
+        console.warn("No se puede aplicar zoom por políticas de la página externa (X-Frame-Options)");
+      }
+    };
+  }
+}
+
+/* Cerrar Reniec (aunque es un popup externo, esta función es para el modal interno si se usara iframe) */
+function cerrarReniec() {
+    document.getElementById("modalReniec").classList.remove("show");
+}
+
+
+/* ---------------------------
+   Switch modo oscuro
+   --------------------------- */
+document.getElementById("darkSwitch").addEventListener("change", function(){
+    document.body.classList.toggle("dark-mode", this.checked);
+});
+</script>
+
++<!-- ================================================================
+     ACCESO Y ADMINISTRACIÓN DINÁMICA - MIGRACIONES/CANCELACIONES
+     ================================================================ -->
+<style>
+  .mc-hidden{display:none!important}.mc-overlay{position:fixed;inset:0;z-index:99990;background:linear-gradient(145deg,#f4fbfc,#fff);display:flex;align-items:center;justify-content:center;padding:22px;font-family:Arial,sans-serif;color:#17333a}.mc-card{width:min(760px,96vw);background:#fff;border:1px solid #dcebed;border-radius:22px;box-shadow:0 24px 70px rgba(0,76,92,.18);padding:34px}.mc-logo{width:54px;height:54px;border-radius:16px;background:linear-gradient(135deg,#008da8,#005f77);display:grid;place-items:center;color:#fff;font-size:26px;margin:auto}.mc-title{text-align:center;margin:14px 0 6px;color:#006f84}.mc-sub{text-align:center;color:#61757a;margin:0 0 24px}.mc-role-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}.mc-role{border:1px solid #d7e7ea;border-radius:16px;background:#fff;padding:22px;text-align:left;cursor:pointer;transition:.2s}.mc-role:hover{transform:translateY(-2px);border-color:#008da8;box-shadow:0 10px 28px rgba(0,110,132,.12)}.mc-role b{display:block;color:#006f84;font-size:18px;margin:8px 0}.mc-role span{color:#60757a;font-size:14px}.mc-login{max-width:420px;margin:auto}.mc-field{display:flex;flex-direction:column;gap:7px;margin:13px 0}.mc-field label{font-weight:700;color:#31555d}.mc-field input,.mc-field select,.mc-field textarea{width:100%;box-sizing:border-box;border:1px solid #cbdde1;border-radius:10px;padding:11px;font:inherit}.mc-btn{border:0;border-radius:10px;padding:11px 16px;background:#007f95;color:#fff;font-weight:700;cursor:pointer}.mc-btn.secondary{background:#eef6f7;color:#17606e}.mc-btn.danger{background:#fff1f1;color:#b32727}.mc-btn.small{padding:7px 10px;font-size:12px}.mc-error{color:#b42318;background:#fff2f1;border-radius:9px;padding:10px;margin-top:10px}.mc-admin{position:fixed;inset:0;z-index:99980;background:#f5f8f9;font-family:Arial,sans-serif;color:#17333a;overflow:auto}.mc-top{position:sticky;top:0;z-index:5;background:#006f84;color:#fff;display:flex;justify-content:space-between;align-items:center;padding:13px 20px;box-shadow:0 2px 12px rgba(0,0,0,.15)}.mc-layout{display:grid;grid-template-columns:230px 1fr;min-height:calc(100vh - 58px)}.mc-nav{background:#fff;border-right:1px solid #dce6e8;padding:18px 12px}.mc-nav button{display:block;width:100%;border:0;background:transparent;text-align:left;padding:11px 13px;border-radius:9px;margin:3px 0;color:#31555d;cursor:pointer}.mc-nav button.active,.mc-nav button:hover{background:#e7f5f7;color:#006f84;font-weight:700}.mc-main{padding:22px;max-width:1300px}.mc-tools{display:flex;gap:9px;justify-content:space-between;align-items:center;flex-wrap:wrap;margin-bottom:16px}.mc-table-wrap{background:#fff;border:1px solid #dce6e8;border-radius:14px;overflow:auto}.mc-table{width:100%;border-collapse:collapse;min-width:760px}.mc-table th,.mc-table td{padding:11px;border-bottom:1px solid #e7edef;text-align:left;vertical-align:top}.mc-table th{background:#edf6f7;color:#24545e;font-size:13px}.mc-chip{display:inline-block;padding:4px 8px;border-radius:99px;background:#e3f6ec;color:#137044;font-size:12px;font-weight:700}.mc-chip.off{background:#f3f3f3;color:#777}.mc-modal{position:fixed;inset:0;z-index:100000;background:rgba(13,41,47,.55);display:flex;align-items:center;justify-content:center;padding:18px}.mc-dialog{width:min(900px,96vw);max-height:92vh;overflow:auto;background:#fff;border-radius:18px;padding:24px}.mc-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.mc-editor{min-height:130px;border:1px solid #cbdde1;border-radius:10px;padding:12px;background:#fff;overflow:auto}.mc-note{font-size:13px;color:#62777c}.mc-empty{padding:34px;text-align:center;color:#6b7c80}.mc-actions{display:flex;gap:7px;flex-wrap:wrap}.mc-session{font-size:13px}.mc-toast{position:fixed;right:20px;bottom:20px;z-index:100010;background:#17333a;color:#fff;padding:13px 17px;border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,.25)}
+  @media(max-width:760px){.mc-role-grid,.mc-grid{grid-template-columns:1fr}.mc-layout{grid-template-columns:1fr}.mc-nav{display:flex;overflow:auto;border-right:0;border-bottom:1px solid #dce6e8;padding:8px}.mc-nav button{min-width:max-content}.mc-main{padding:14px}.mc-card{padding:24px}}
+</style>
+<script>
+(function(){
+  'use strict';
+  const API_URL=window.MC_API_URL;
+  const CAMPAIGN=/cancel/i.test(document.title)?'cancelacion':'migracion';
+  const LABEL=CAMPAIGN==='migracion'?'Migraciones':'Cancelaciones';
+  const state={token:localStorage.getItem('mc_admin_token')||'',user:null,catalogs:[],plans:[],tab:'plan'};
+  const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  const post=async(data)=>{const response=await fetch(API_URL,{method:'POST',body:new URLSearchParams(data)});const text=await response.text();try{return JSON.parse(text)}catch(_){throw new Error(text||'Respuesta inválida del servidor')}};
+  const get=async(params)=>{const response=await fetch(API_URL+'?'+new URLSearchParams(params));return response.json()};
+  function toast(message){const old=document.querySelector('.mc-toast');if(old)old.remove();const el=document.createElement('div');el.className='mc-toast';el.textContent=message;document.body.appendChild(el);setTimeout(()=>el.remove(),2800)}
+  function accessScreen(){
+    const remembered=localStorage.getItem('mc_access_mode');
+    if(remembered==='agent')return;
+    const box=document.createElement('div');box.id='mcAccess';box.className='mc-overlay';box.innerHTML=`<div class="mc-card"><div id="mcRole"><div class="mc-logo">B</div><h2 class="mc-title">${LABEL}</h2><p class="mc-sub">Seleccione cómo desea ingresar</p><div class="mc-role-grid"><button class="mc-role" id="mcAgent">👤<b>Ingresar como agente</b><span>Acceder al formulario operativo habitual.</span></button><button class="mc-role" id="mcAdmin">⚙️<b>Ingresar como administrador</b><span>Gestionar información y configuraciones.</span></button></div><p class="mc-note" style="text-align:center;margin-top:18px"><label><input type="checkbox" id="mcRemember"> Recordar ingreso como agente en este dispositivo</label></p></div><div id="mcLogin" class="mc-login mc-hidden"><button class="mc-btn secondary small" id="mcBack">← Volver</button><h2 class="mc-title">Acceso administrativo</h2><div class="mc-field"><label>Usuario</label><input id="mcUser" autocomplete="username"></div><div class="mc-field"><label>Contraseña</label><input id="mcPass" type="password" autocomplete="current-password"></div><button class="mc-btn" id="mcEnter" style="width:100%">Ingresar</button><div id="mcLoginError"></div></div></div>`;
+    document.body.appendChild(box);
+    box.querySelector('#mcAgent').onclick=()=>{if(box.querySelector('#mcRemember').checked)localStorage.setItem('mc_access_mode','agent');box.remove()};
+    box.querySelector('#mcAdmin').onclick=()=>{box.querySelector('#mcRole').classList.add('mc-hidden');box.querySelector('#mcLogin').classList.remove('mc-hidden');box.querySelector('#mcUser').focus()};
+    box.querySelector('#mcBack').onclick=()=>{box.querySelector('#mcLogin').classList.add('mc-hidden');box.querySelector('#mcRole').classList.remove('mc-hidden')};
+    box.querySelector('#mcEnter').onclick=login;
+    box.querySelector('#mcPass').addEventListener('keydown',e=>{if(e.key==='Enter')login()});
+  }
+  async function login(){
+    const err=document.querySelector('#mcLoginError');err.innerHTML='';
+    try{const result=await post({action:'login',usuario:document.querySelector('#mcUser').value,clave:document.querySelector('#mcPass').value});if(!result.ok)throw new Error(result.error);state.token=result.token;state.user=result.user;localStorage.setItem('mc_admin_token',state.token);document.querySelector('#mcAccess')?.remove();await openAdmin()}catch(e){err.innerHTML='<div class="mc-error">'+esc(e.message)+'</div>'}
+  }
+  async function openAdmin(){
+    if(!state.user){const valid=await get({action:'validateSession',sessionToken:state.token});if(!valid.ok){localStorage.removeItem('mc_admin_token');accessScreen();return}state.user=valid.user}
+    let root=document.querySelector('#mcAdminRoot');if(!root){root=document.createElement('div');root.id='mcAdminRoot';root.className='mc-admin';document.body.appendChild(root)}
+    root.innerHTML=`<header class="mc-top"><div><b>Administración · ${LABEL}</b><div class="mc-session">${esc(state.user.name)} · ${esc(state.user.role)}</div></div><div class="mc-actions"><button class="mc-btn secondary small" id="mcAgentView">Vista agente</button><button class="mc-btn secondary small" id="mcLogout">Cerrar sesión</button></div></header><div class="mc-layout"><nav class="mc-nav" id="mcNav"></nav><main class="mc-main"><div id="mcContent"></div></main></div>`;
+    root.querySelector('#mcLogout').onclick=logout;root.querySelector('#mcAgentView').onclick=()=>root.remove();buildNav();await reloadAdmin();
+  }
+  function buildNav(){
+    const items=[['plan',CAMPAIGN==='migracion'?'Planes':'Consideraciones'],['usuario','Usuarios agentes']];
+    if(CAMPAIGN==='migracion')items.push(['ciclo','Ciclos']);
+    items.push(['motivoPrincipal','Motivos principales'],['motivoSecundario','Motivos secundarios']);
+    if(state.user.role==='ADMIN')items.push(['accounts','Accesos administrativos']);
+    items.push(['history','Historial']);
+    const nav=document.querySelector('#mcNav');nav.innerHTML=items.map(i=>`<button data-tab="${i[0]}" class="${state.tab===i[0]?'active':''}">${i[1]}</button>`).join('');
+    nav.querySelectorAll('button').forEach(b=>b.onclick=()=>{state.tab=b.dataset.tab;buildNav();renderTab()});
+  }
+  async function reloadAdmin(){const result=await post({action:'adminList',sessionToken:state.token,campaign:CAMPAIGN});if(!result.ok)throw new Error(result.error);state.catalogs=result.catalogs||[];state.plans=result.plans||[];renderTab()}
+  function renderTab(){
+    if(state.tab==='accounts')return renderAccounts();if(state.tab==='history')return renderHistory();
+    const isPlan=state.tab==='plan';const list=isPlan?state.plans:state.catalogs.filter(x=>x.type===state.tab);const writable=state.user.role!=='SEGUIMIENTO';
+    const title=isPlan?(CAMPAIGN==='migracion'?'Planes y contenido asociado':'Grupos de consideraciones'):document.querySelector(`#mcNav [data-tab="${state.tab}"]`)?.textContent;
+    const content=document.querySelector('#mcContent');content.innerHTML=`<div class="mc-tools"><div><h2 style="margin:0">${esc(title)}</h2><div class="mc-note">${isPlan?'Beneficios, promoción y consideraciones se guardan como un solo grupo.':'Active, desactive, ordene o modifique las opciones disponibles.'}</div></div><div class="mc-actions">${(state.catalogs.length===0&&state.plans.length===0&&writable)?'<button class="mc-btn secondary" id="mcImport">Importar configuración actual</button>':''}${writable?'<button class="mc-btn" id="mcNew">＋ Agregar</button>':''}</div></div><div class="mc-table-wrap">${list.length?tableHtml(list,isPlan):'<div class="mc-empty">Todavía no existen registros en esta sección.</div>'}</div>`;
+    content.querySelector('#mcNew')?.addEventListener('click',()=>isPlan?planModal():catalogModal());content.querySelector('#mcImport')?.addEventListener('click',importCurrent);
+    content.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>{const item=list.find(x=>x.id===b.dataset.edit);isPlan?planModal(item):catalogModal(item)});
+    content.querySelectorAll('[data-status]').forEach(b=>b.onclick=()=>setStatus(b.dataset.entity,b.dataset.status,b.dataset.status==='ACTIVO'?'INACTIVO':'ACTIVO'));
+    content.querySelectorAll('[data-delete]').forEach(b=>b.onclick=()=>deleteItem(b.dataset.entity,b.dataset.delete));
+  }
+  function tableHtml(list,isPlan){return `<table class="mc-table"><thead><tr><th>${isPlan?'Nombre':'Valor'}</th><th>${isPlan?'Categoría':'Etiqueta'}</th><th>Estado</th><th>Orden</th><th>Acciones</th></tr></thead><tbody>${list.map(x=>`<tr><td><b>${esc(isPlan?x.name:x.value)}</b></td><td>${esc(isPlan?x.category:x.label)}</td><td><span class="mc-chip ${x.status==='INACTIVO'?'off':''}">${esc(x.status)}</span></td><td>${Number(x.order||0)}</td><td><div class="mc-actions">${state.user.role!=='SEGUIMIENTO'?`<button class="mc-btn secondary small" data-edit="${esc(x.id)}">Editar</button><button class="mc-btn secondary small" data-entity="${isPlan?'plan':'catalog'}" data-status="${esc(x.id)}">${x.status==='INACTIVO'?'Activar':'Desactivar'}</button>`:''}${state.user.role==='ADMIN'?`<button class="mc-btn danger small" data-entity="${isPlan?'plan':'catalog'}" data-delete="${esc(x.id)}">Eliminar</button>`:''}</div></td></tr>`).join('')}</tbody></table>`}
+  function modalShell(title,body,onSave){const modal=document.createElement('div');modal.className='mc-modal';modal.innerHTML=`<div class="mc-dialog"><h2>${esc(title)}</h2>${body}<div class="mc-actions" style="justify-content:flex-end;margin-top:18px"><button class="mc-btn secondary" data-close>Cancelar</button><button class="mc-btn" data-save>Guardar</button></div><div data-error></div></div>`;document.body.appendChild(modal);modal.querySelector('[data-close]').onclick=()=>modal.remove();modal.addEventListener('click',e=>{if(e.target===modal)modal.remove()});modal.querySelector('[data-save]').onclick=async()=>{try{await onSave(modal);modal.remove();await reloadAdmin();toast('Cambios guardados')}catch(e){modal.querySelector('[data-error]').innerHTML='<div class="mc-error">'+esc(e.message)+'</div>'}};return modal}
+  function catalogModal(item={}){modalShell(item.id?'Editar opción':'Agregar opción',`<div class="mc-grid"><div class="mc-field"><label>Valor guardado</label><input data-f="value" value="${esc(item.value||'')}"></div><div class="mc-field"><label>Texto visible</label><input data-f="label" value="${esc(item.label||'')}"></div><div class="mc-field"><label>Categoría opcional</label><input data-f="category" value="${esc(item.category||'')}"></div><div class="mc-field"><label>Orden</label><input data-f="order" type="number" value="${Number(item.order||0)}"></div></div>`,async m=>{const f=n=>m.querySelector(`[data-f="${n}"]`).value;const r=await post({action:'adminSaveCatalog',sessionToken:state.token,campaign:CAMPAIGN,type:state.tab,id:item.id||'',value:f('value'),label:f('label'),category:f('category'),order:f('order'),status:item.status||'ACTIVO'});if(!r.ok)throw new Error(r.error)})}
+  function planModal(item={}){const label=CAMPAIGN==='migracion'?'Plan':'Grupo';modalShell(item.id?`Editar ${label.toLowerCase()}`:`Agregar ${label.toLowerCase()}`,`<div class="mc-grid"><div class="mc-field"><label>Nombre visible</label><input data-f="name" value="${esc(item.name||'')}"></div><div class="mc-field"><label>Categoría</label><input data-f="category" value="${esc(item.category||'')}"></div><div class="mc-field"><label>Orden</label><input data-f="order" type="number" value="${Number(item.order||0)}"></div><div></div></div><div class="mc-field"><label>${CAMPAIGN==='migracion'?'Beneficios':'Speech principal'}</label><div class="mc-editor" contenteditable="true" data-f="benefits">${item.benefits||''}</div></div><div class="mc-field"><label>Promoción ${CAMPAIGN==='cancelacion'?'(opcional)':''}</label><div class="mc-editor" contenteditable="true" data-f="promotion">${item.promotion||''}</div></div><div class="mc-field"><label>Consideraciones</label><div class="mc-editor" contenteditable="true" data-f="considerations">${item.considerations||''}</div></div><p class="mc-note">Puede escribir, pegar listas y aplicar formato básico desde el navegador. Se mostrará una vista equivalente en la página del agente.</p>`,async m=>{const value=n=>{const el=m.querySelector(`[data-f="${n}"]`);return el.isContentEditable?el.innerHTML:el.value};const r=await post({action:'adminSavePlan',sessionToken:state.token,campaign:CAMPAIGN,id:item.id||'',name:value('name'),category:value('category'),order:value('order'),benefits:value('benefits'),promotion:value('promotion'),considerations:value('considerations'),status:item.status||'ACTIVO'});if(!r.ok)throw new Error(r.error)})}
+  async function setStatus(entity,id,status){const r=await post({action:'adminSetStatus',sessionToken:state.token,campaign:CAMPAIGN,entity,id,status});if(!r.ok)return toast(r.error);await reloadAdmin();toast('Estado actualizado')}
+  async function deleteItem(entity,id){if(!confirm('¿Eliminar definitivamente este registro? Esta acción quedará registrada en el historial.'))return;const r=await post({action:'adminDelete',sessionToken:state.token,campaign:CAMPAIGN,entity,id});if(!r.ok)return toast(r.error);await reloadAdmin();toast('Registro eliminado')}
+  async function renderAccounts(){const content=document.querySelector('#mcContent');content.innerHTML='<div class="mc-empty">Cargando accesos…</div>';const r=await post({action:'adminListAccounts',sessionToken:state.token});if(!r.ok)return content.innerHTML='<div class="mc-error">'+esc(r.error)+'</div>';content.innerHTML=`<div class="mc-tools"><div><h2 style="margin:0">Accesos administrativos</h2><div class="mc-note">Las contraseñas existentes nunca se muestran.</div></div><button class="mc-btn" id="mcNewAccount">＋ Agregar acceso</button></div><div class="mc-table-wrap"><table class="mc-table"><thead><tr><th>Usuario</th><th>Nombres</th><th>Permiso</th><th>Estado</th><th></th></tr></thead><tbody>${r.accounts.map(a=>`<tr><td>${esc(a.username)}</td><td>${esc(a.name)}</td><td>${esc(a.role)}</td><td>${esc(a.status)}</td><td><div class="mc-actions"><button class="mc-btn secondary small" data-account="${esc(a.username)}">Editar</button><button class="mc-btn danger small" data-del-account="${esc(a.username)}">Eliminar</button></div></td></tr>`).join('')}</tbody></table></div>`;content.querySelector('#mcNewAccount').onclick=()=>accountModal();content.querySelectorAll('[data-account]').forEach(b=>b.onclick=()=>accountModal(r.accounts.find(a=>a.username===b.dataset.account)));content.querySelectorAll('[data-del-account]').forEach(b=>b.onclick=()=>deleteAccount(b.dataset.delAccount))}
+  function accountModal(item={}){modalShell(item.username?'Editar acceso':'Agregar acceso',`<div class="mc-grid"><div class="mc-field"><label>Usuario</label><input data-f="username" ${item.username?'readonly':''} value="${esc(item.username||'')}"></div><div class="mc-field"><label>Nombres</label><input data-f="name" value="${esc(item.name||'')}"></div><div class="mc-field"><label>Permiso</label><select data-f="role">${['ADMIN','SUPERVISOR','SEGUIMIENTO'].map(v=>`<option ${item.role===v?'selected':''}>${v}</option>`).join('')}</select></div><div class="mc-field"><label>Estado</label><select data-f="status"><option ${item.status!=='INACTIVO'?'selected':''}>ACTIVO</option><option ${item.status==='INACTIVO'?'selected':''}>INACTIVO</option></select></div><div class="mc-field"><label>${item.username?'Nueva contraseña (dejar vacío para conservar)':'Contraseña'}</label><input data-f="password" type="password"></div></div>`,async m=>{const f=n=>m.querySelector(`[data-f="${n}"]`).value;const r=await post({action:'adminSaveAccount',sessionToken:state.token,username:f('username'),name:f('name'),role:f('role'),status:f('status'),password:f('password')});if(!r.ok)throw new Error(r.error);renderAccounts()})}
+  async function deleteAccount(username){if(!confirm('¿Eliminar definitivamente este acceso administrativo?'))return;const r=await post({action:'adminDeleteAccount',sessionToken:state.token,username});if(!r.ok)return toast(r.error);await renderAccounts();toast('Acceso eliminado')}
+  async function renderHistory(){const content=document.querySelector('#mcContent');content.innerHTML='<div class="mc-empty">Cargando historial…</div>';const r=await post({action:'adminHistory',sessionToken:state.token});if(!r.ok)return content.innerHTML='<div class="mc-error">'+esc(r.error)+'</div>';content.innerHTML=`<div class="mc-tools"><div><h2 style="margin:0">Historial de cambios</h2><div class="mc-note">Últimos 200 movimientos administrativos.</div></div></div><div class="mc-table-wrap"><table class="mc-table"><thead><tr><th>Fecha</th><th>Usuario</th><th>Permiso</th><th>Campaña</th><th>Acción</th><th>Sección</th></tr></thead><tbody>${r.history.map(h=>`<tr><td>${esc(h.date)}</td><td>${esc(h.name||h.user)}</td><td>${esc(h.role)}</td><td>${esc(h.campaign)}</td><td>${esc(h.action)}</td><td>${esc(h.section)}</td></tr>`).join('')}</tbody></table></div>`}
+  async function logout(){try{await post({action:'logout',sessionToken:state.token})}catch(_){}localStorage.removeItem('mc_admin_token');state.token='';state.user=null;document.querySelector('#mcAdminRoot')?.remove();accessScreen()}
+  function optionData(select,type){if(!select)return[];return Array.from(select.options).filter(o=>o.value).map((o,i)=>({type,value:o.value,label:o.textContent.trim(),category:o.parentElement.tagName==='OPTGROUP'?o.parentElement.label:'',order:i+1}))}
+  async function importCurrent(){
+    if(!confirm('Se copiará al Excel la configuración que actualmente está escrita en esta página. ¿Continuar?'))return;
+    const catalogs=[];
+    document.querySelectorAll('#usuarios-sugeridos option').forEach((o,i)=>catalogs.push({type:'usuario',value:o.value,label:o.value,order:i+1}));
+    if(CAMPAIGN==='migracion')catalogs.push(...optionData(document.querySelector('#ciclo'),'ciclo'));
+    catalogs.push(...optionData(document.querySelector('#motivoPrincipal'),'motivoPrincipal'));
+    const secondary=CAMPAIGN==='migracion'?document.querySelector('#motivos-sugeridos'):document.querySelector('#motivo');
+    if(secondary?.tagName==='DATALIST')Array.from(secondary.options).filter(o=>o.value&&o.value!=='manual_input').forEach((o,i)=>catalogs.push({type:'motivoSecundario',value:o.value,label:o.value,order:i+1}));else catalogs.push(...optionData(secondary,'motivoSecundario'));
+    const planSelect=document.querySelector('#plan'),plans=[];const original=planSelect?.value;
+    if(planSelect){for(const [i,o] of Array.from(planSelect.options).filter(o=>o.value).entries()){planSelect.value=o.value;try{window.mostrarPlan()}catch(_){}await new Promise(r=>setTimeout(r,0));let benefits=document.querySelector('#detalle')?.innerHTML||'',considerations=document.querySelector('#consideraciones')?.innerHTML||'';let promotion='';const promoIndex=benefits.search(/<p[^>]*>\s*(?:<[^>]+>\s*)*Promoci[oó]n/i);if(promoIndex>=0){promotion=benefits.slice(promoIndex);benefits=benefits.slice(0,promoIndex)}if(CAMPAIGN==='cancelacion'&&!considerations){considerations=benefits;benefits=''}plans.push({name:o.value,category:o.parentElement.tagName==='OPTGROUP'?o.parentElement.label:'',benefits,promotion,considerations,order:i+1})}planSelect.value=original||'';try{window.mostrarPlan()}catch(_){}}
+    const r=await post({action:'adminImport',sessionToken:state.token,campaign:CAMPAIGN,payload:JSON.stringify({catalogs,plans})});if(!r.ok)return toast(r.error);await reloadAdmin();await loadPublicConfig();toast(`Importación completada: ${r.catalogs} opciones y ${r.plans} grupos`)
+  }
+  function populateSelect(el,items,placeholder='Seleccione'){if(!el||!items.length)return;const current=el.value;el.innerHTML=`<option value="">${placeholder}</option>`;const groups={};items.forEach(item=>{const category=item.category||'';(groups[category]||(groups[category]=[])).push(item)});Object.entries(groups).forEach(([category,rows])=>{const parent=category?Object.assign(document.createElement('optgroup'),{label:category}):el;rows.forEach(item=>{const o=document.createElement('option');o.value=item.value;o.textContent=item.label||item.value;parent.appendChild(o)});if(category)el.appendChild(parent)});el.value=current}
+  async function loadPublicConfig(){
+    try{const r=await get({action:'getConfig',tipo:CAMPAIGN});if(!r.ok||!r.data?.initialized)return;const c=r.data.catalogs||[],plans=r.data.plans||[];
+      const users=document.querySelector('#usuarios-sugeridos');if(users){users.innerHTML='';c.filter(x=>x.type==='usuario').forEach(x=>users.appendChild(Object.assign(document.createElement('option'),{value:x.value})))}
+      populateSelect(document.querySelector('#motivoPrincipal'),c.filter(x=>x.type==='motivoPrincipal'));
+      if(CAMPAIGN==='migracion'){populateSelect(document.querySelector('#ciclo'),c.filter(x=>x.type==='ciclo'));const dl=document.querySelector('#motivos-sugeridos');if(dl){dl.innerHTML='';c.filter(x=>x.type==='motivoSecundario').forEach(x=>dl.appendChild(Object.assign(document.createElement('option'),{value:x.value})))} }
+      else populateSelect(document.querySelector('#motivo'),c.filter(x=>x.type==='motivoSecundario'));
+      const planSelect=document.querySelector('#plan');if(planSelect&&plans.length){const items=plans.map(p=>({value:p.name,label:p.name,category:p.category}));populateSelect(planSelect,items,'Seleccione:');const map=new Map(plans.map(p=>[p.name,p]));window.mostrarPlan=function(){const p=map.get(planSelect.value),details=document.querySelector('#planDetails'),detail=document.querySelector('#detalle'),considerations=document.querySelector('#consideraciones');if(!p){details?.classList.remove('show');return}if(CAMPAIGN==='migracion'){if(detail)detail.innerHTML=(p.benefits||'')+(p.promotion?`<section class="mc-promotion">${p.promotion}</section>`:'');if(considerations)considerations.innerHTML=p.considerations||''}else if(detail)detail.innerHTML=(p.benefits||'')+(p.promotion||'')+(p.considerations||'');details?.classList.add('show')}}
+    }catch(e){console.warn('No se pudo cargar la configuración dinámica:',e)}
+  }
+  function addSwitchButton(){if(document.querySelector('#mcSwitchAccess'))return;const b=document.createElement('button');b.id='mcSwitchAccess';b.type='button';b.className='mc-btn secondary small';b.textContent='Cambiar acceso';b.style.cssText='position:fixed;left:14px;bottom:14px;z-index:9000;box-shadow:0 5px 18px rgba(0,0,0,.16)';b.onclick=()=>{localStorage.removeItem('mc_access_mode');accessScreen()};document.body.appendChild(b)}
+  document.addEventListener('DOMContentLoaded',async()=>{addSwitchButton();await loadPublicConfig();if(state.token){const v=await get({action:'validateSession',sessionToken:state.token});if(v.ok){state.user=v.user;await openAdmin();return}localStorage.removeItem('mc_admin_token');state.token=''}accessScreen()});
+  window.cambiarTipoDeAcceso=()=>{localStorage.removeItem('mc_access_mode');accessScreen()};
+})();
+</script>
+
+</body>
+</html>
