@@ -14,12 +14,57 @@
       if (window.crypto && typeof window.crypto.randomUUID === 'function') return window.crypto.randomUUID();
       return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2);
     }
-    function mcEsHtmlInesperado(text) {
-      return /^\s*<!doctype\s+html/i.test(text) || /<html[\s>]/i.test(text) ||
-        /<script[^>]+nonce=/i.test(text) || /script\.google\.com\/csp\/proto/i.test(text);
+    function mcDelay(ms) { return new Promise(function (resolve) { setTimeout(resolve, ms); }); }
+    function mcJsonp(params, intento) {
+      intento = intento || 0;
+      return new Promise(function (resolve, reject) {
+        const callback = '__mc_jsonp_' + mcRequestId().replace(/-/g, '_');
+        const script = document.createElement('script');
+        const timer = setTimeout(function () {
+          limpiar();
+          reject(new Error('Apps Script está tardando más de lo esperado.'));
+        }, 10000);
+        function limpiar() {
+          clearTimeout(timer);
+          try { delete window[callback]; } catch (_) { window[callback] = undefined; }
+          if (script.parentNode) script.parentNode.removeChild(script);
+        }
+        window[callback] = function (data) { limpiar(); resolve(data); };
+        script.onerror = function () { limpiar(); reject(new Error('No se pudo consultar Apps Script.')); };
+        const query = Object.assign({}, params || {}, { callback: callback, _ts: Date.now(), _try: intento });
+        script.src = window.MC_API_URL + '?' + new URLSearchParams(query);
+        document.head.appendChild(script);
+      }).catch(function (error) {
+        if (intento < 1) return mcDelay(700).then(function () { return mcJsonp(params, intento + 1); });
+        throw error;
+      });
     }
-    function mcErrorTemporal() {
-      return new Error('Google Apps Script devolvió una respuesta temporal. Espere unos segundos y vuelva a intentarlo. Sus datos no se mostrarán como código en pantalla.');
+    function mcPoll(requestId, limite) {
+      return mcJsonp({ action: 'poll', requestId: requestId }).then(function (estado) {
+        if (estado && estado.done) return estado.result;
+        if (Date.now() >= limite) throw new Error('No se pudo confirmar el guardado. Revise su conexión y vuelva a intentarlo.');
+        return mcDelay(650).then(function () { return mcPoll(requestId, limite); });
+      }).catch(function (error) {
+        if (Date.now() >= limite) throw error;
+        return mcDelay(900).then(function () { return mcPoll(requestId, limite); });
+      });
+    }
+    function mcRegisterRequestId(payload) {
+      const key = 'mc_pending_register_' + String(payload.tipo || 'cancelacion');
+      const fingerprint = new URLSearchParams(Object.keys(payload).sort().reduce(function (acc, name) {
+        if (name !== 'requestId') acc[name] = payload[name];
+        return acc;
+      }, {})).toString();
+      try {
+        const pending = JSON.parse(sessionStorage.getItem(key) || 'null');
+        if (pending && pending.fingerprint === fingerprint && Date.now() - pending.createdAt < 600000) return pending.requestId;
+        const requestId = mcRequestId();
+        sessionStorage.setItem(key, JSON.stringify({ requestId: requestId, fingerprint: fingerprint, createdAt: Date.now() }));
+        return requestId;
+      } catch (_) { return mcRequestId(); }
+    }
+    function mcClearPendingRegister(payload) {
+      try { sessionStorage.removeItem('mc_pending_register_' + String(payload.tipo || 'cancelacion')); } catch (_) {}
     }
     window.mcApiCall = function (params, method) {
       if (window.MC_HOSTED_IN_APPS_SCRIPT && window.google && google.script && google.script.run) {
@@ -31,34 +76,21 @@
       }
       const verb = String(method || 'GET').toUpperCase();
       const payload = Object.assign({}, params || {});
-      const action = String(payload.action || (verb === 'POST' ? 'register' : ''));
-      if (verb === 'POST' && action === 'register' && !payload.requestId) payload.requestId = mcRequestId();
+      if (verb !== 'POST') return mcJsonp(payload);
 
-      function ejecutar(intento) {
-        const query = Object.assign({}, payload, { _ts: Date.now(), _try: intento });
-        const options = verb === 'POST' ? {
-          method: 'POST', body: new URLSearchParams(query), cache: 'no-store',
-          credentials: 'omit', redirect: 'follow'
-        } : { cache: 'no-store', credentials: 'omit', redirect: 'follow' };
-        const url = verb === 'POST' ? window.MC_API_URL : window.MC_API_URL + '?' + new URLSearchParams(query);
-        return fetch(url, options).then(function (response) {
-          return response.text().then(function (text) {
-            if (mcEsHtmlInesperado(text)) {
-              console.warn('[mcApiCall] Respuesta HTML inesperada de Apps Script.', {
-                action: action, intento: intento + 1, estado: response.status
-              });
-              const puedeReintentar = verb === 'GET' || (verb === 'POST' && action === 'register');
-              if (intento === 0 && puedeReintentar) {
-                return new Promise(function (resolve) { setTimeout(resolve, 900); }).then(function () { return ejecutar(1); });
-              }
-              throw mcErrorTemporal();
-            }
-            if (!response.ok) throw new Error('El servidor no respondió correctamente (HTTP ' + response.status + ').');
-            try { return JSON.parse(text); } catch (_) { return text; }
-          });
-        });
-      }
-      return ejecutar(0);
+      payload.action = String(payload.action || 'register');
+      payload.requestId = String(payload.requestId || (payload.action === 'register' ? mcRegisterRequestId(payload) : mcRequestId()));
+      const body = new URLSearchParams(payload);
+      const envio = fetch(window.MC_API_URL, {
+        method: 'POST', mode: 'no-cors', body: body, cache: 'no-store',
+        credentials: 'omit', redirect: 'follow'
+      }).catch(function (error) {
+        console.warn('[mcApiCall] El POST no confirmó transporte; se consultará el requestId.', error);
+      });
+      return envio.then(function () { return mcPoll(payload.requestId, Date.now() + 45000); }).then(function (result) {
+        if (payload.action === 'register') mcClearPendingRegister(payload);
+        return result;
+      });
     };
   })();
 </script>
