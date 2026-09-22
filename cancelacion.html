@@ -10,6 +10,17 @@
     const injected = (document.querySelector('meta[name="mc-api-url"]')?.content || '').trim();
     window.MC_HOSTED_IN_APPS_SCRIPT = /^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/(?:exec|dev)$/.test(injected);
     window.MC_API_URL = window.MC_HOSTED_IN_APPS_SCRIPT ? injected : githubApi;
+    function mcRequestId() {
+      if (window.crypto && typeof window.crypto.randomUUID === 'function') return window.crypto.randomUUID();
+      return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2);
+    }
+    function mcEsHtmlInesperado(text) {
+      return /^\s*<!doctype\s+html/i.test(text) || /<html[\s>]/i.test(text) ||
+        /<script[^>]+nonce=/i.test(text) || /script\.google\.com\/csp\/proto/i.test(text);
+    }
+    function mcErrorTemporal() {
+      return new Error('Google Apps Script devolvió una respuesta temporal. Espere unos segundos y vuelva a intentarlo. Sus datos no se mostrarán como código en pantalla.');
+    }
     window.mcApiCall = function (params, method) {
       if (window.MC_HOSTED_IN_APPS_SCRIPT && window.google && google.script && google.script.run) {
         return new Promise(function (resolve, reject) {
@@ -18,12 +29,36 @@
           }).apiRequest(params || {});
         });
       }
-      const verb = method || 'GET';
-      const options = verb === 'POST' ? { method: 'POST', body: new URLSearchParams(params || {}) } : {};
-      const url = verb === 'POST' ? window.MC_API_URL : window.MC_API_URL + '?' + new URLSearchParams(params || {});
-      return fetch(url, options).then(function (response) { return response.text(); }).then(function (text) {
-        try { return JSON.parse(text); } catch (_) { return text; }
-      });
+      const verb = String(method || 'GET').toUpperCase();
+      const payload = Object.assign({}, params || {});
+      const action = String(payload.action || (verb === 'POST' ? 'register' : ''));
+      if (verb === 'POST' && action === 'register' && !payload.requestId) payload.requestId = mcRequestId();
+
+      function ejecutar(intento) {
+        const query = Object.assign({}, payload, { _ts: Date.now(), _try: intento });
+        const options = verb === 'POST' ? {
+          method: 'POST', body: new URLSearchParams(query), cache: 'no-store',
+          credentials: 'omit', redirect: 'follow'
+        } : { cache: 'no-store', credentials: 'omit', redirect: 'follow' };
+        const url = verb === 'POST' ? window.MC_API_URL : window.MC_API_URL + '?' + new URLSearchParams(query);
+        return fetch(url, options).then(function (response) {
+          return response.text().then(function (text) {
+            if (mcEsHtmlInesperado(text)) {
+              console.warn('[mcApiCall] Respuesta HTML inesperada de Apps Script.', {
+                action: action, intento: intento + 1, estado: response.status
+              });
+              const puedeReintentar = verb === 'GET' || (verb === 'POST' && action === 'register');
+              if (intento === 0 && puedeReintentar) {
+                return new Promise(function (resolve) { setTimeout(resolve, 900); }).then(function () { return ejecutar(1); });
+              }
+              throw mcErrorTemporal();
+            }
+            if (!response.ok) throw new Error('El servidor no respondió correctamente (HTTP ' + response.status + ').');
+            try { return JSON.parse(text); } catch (_) { return text; }
+          });
+        });
+      }
+      return ejecutar(0);
     };
   })();
 </script>
@@ -729,7 +764,11 @@ function limpiar(){
 document.getElementById("btnLimpiarOperacion").addEventListener("click", limpiar);
 
 function mostrarError(detalle){
-  document.getElementById("mensaje").textContent = "❌ No se pudo guardar: " + detalle;
+  let texto = String(detalle || "Error desconocido").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+  if (/DOCTYPE|script\.google\.com|nonce=|ACCESS_SET|HEARTBEAT/i.test(String(detalle || ""))) {
+    texto = "Google Apps Script devolvió una respuesta temporal. Espere unos segundos y vuelva a intentarlo.";
+  }
+  document.getElementById("mensaje").textContent = "❌ No se pudo guardar: " + texto.slice(0, 280);
   document.getElementById("speech").style.display = "none";
 }
 
