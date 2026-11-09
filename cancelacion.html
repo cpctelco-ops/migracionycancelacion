@@ -491,6 +491,18 @@ function agregarDiasHabiles(fechaInicio, dias, feriadosArray) {
   return resultado;
 }
 
+// ======== Meses calendario ========
+// Suma meses sin que el desborde de JS cambie de mes (ej. 31/ene + 1 mes → 28/feb, no 03/mar)
+function sumarMesesCalendario(fecha, meses) {
+  const resultado = new Date(fecha);
+  const diaOriginal = resultado.getDate();
+  resultado.setDate(1);
+  resultado.setMonth(resultado.getMonth() + meses);
+  const ultimoDiaDelMes = new Date(resultado.getFullYear(), resultado.getMonth() + 1, 0).getDate();
+  resultado.setDate(Math.min(diaOriginal, ultimoDiaDelMes));
+  return resultado;
+}
+
 // ======== Inicialización ========
 function inicializarFechasCancelacion(fechaBase) {
   const labelEl = document.getElementById("labelFechaCancela");
@@ -506,13 +518,12 @@ function inicializarFechasCancelacion(fechaBase) {
     : "Verifique los feriados del año antes de programar la baja.";
   estadoEl.style.color = FERIADOS_PERU[hoy.getFullYear()] ? "#60777c" : "#b54708";
 
-  // Calcular fechas con lógica corregida
-  // ➤ Mínimo: 6 días hábiles después de hoy
-  const fechaMin = agregarDiasHabiles(hoy, 6, feriados);
+  // Calcular fechas según el texto del speech
+  // ➤ Mínimo: 1 día hábil después de hoy
+  const fechaMin = agregarDiasHabiles(hoy, 1, feriados);
 
-  // ➤ Máximo: 30 días calendario desde HOY (contando el mismo día)
-  const fechaMax = new Date(hoy);
-  fechaMax.setDate(hoy.getDate() + 29); // ✅ Ajuste: contar el mismo día como día 1
+  // ➤ Máximo: 1 mes calendario desde HOY
+  const fechaMax = sumarMesesCalendario(hoy, 1);
 
   // Mostrar texto actualizado
   labelEl.innerHTML = `
